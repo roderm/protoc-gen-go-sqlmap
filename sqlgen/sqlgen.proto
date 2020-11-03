@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+// import "github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.proto";
+package sqlgen;
+import "google/protobuf/descriptor.proto";
+// option go_package = "github.com/roderm/protoc-gen-go-sqlmap/sqlgen";
+
+enum PK {
+    NONE = 0;
+    AUTO = 1;
+    MAN = 2;
+}
+
+extend google.protobuf.MessageOptions {
+    optional string dbtable = 800100;
+}
+extend google.protobuf.FieldOptions {
+    optional string dbcol = 800110;
+    optional PK dbpk = 800111;
+    optional string dbfk = 800112;
+}

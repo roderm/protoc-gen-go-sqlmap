@@ -6,7 +6,7 @@ proto:
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOPATH}/src/)
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOGO_PATH}/)
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOGO_PATH}/protobuf/)
-	# $(eval IMPORT_PATH=${IMPORT_PATH}:${GOPATH}/src/bragi.eyevip.io/rot/protoc-gen-go-sqlmap/sqlgen/)
+	# $(eval IMPORT_PATH=${IMPORT_PATH}:${GOPATH}/src/github.com/roderm/protoc-gen-go-sqlmap/sqlgen/)
 	go get google.golang.org/grpc/cmd/protoc-gen-go-grpc;
 	go install github.com/gogo/protobuf/protoc-gen-gogo;
 	find ./ -type f -name *.proto -exec \
