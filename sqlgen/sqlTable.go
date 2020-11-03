@@ -2,6 +2,7 @@ package sqlgen
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	proto "github.com/gogo/protobuf/proto"
@@ -51,6 +52,21 @@ func (tm *Table) GetColumnByColumnName(message string) (*field, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (t *Table) GetOrderedCols() []*field {
+	r := make(map[int]*field)
+	result := []*field{}
+	indexes := []int{}
+	for _, f := range t.Cols {
+		indexes = append(indexes, int(f.desc.GetNumber()))
+		r[int(f.desc.GetNumber())] = f
+	}
+	sort.Ints(indexes)
+	for _, i := range indexes {
+		result = append(result, r[i])
+	}
+	return result
 }
 
 func NewTableMessages(messages []*generator.Descriptor) *TableMessages {

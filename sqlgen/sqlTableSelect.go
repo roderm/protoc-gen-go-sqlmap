@@ -15,7 +15,7 @@ var selectTpl = `
 func (s *Store) select{{ MessageName . }}(ctx context.Context, filter pg.Where, withRow func(*{{ MessageName .  }})) error {
 	where, vals := pg.GetWhereClause(filter)
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
-	SELECT {{ getColumnNames .Cols  ", " }} 
+	SELECT {{ getColumnNames .  ", " }} 
 	FROM {{ TableName . }}
 	` + "`" + `+where)
 	if err != nil {
@@ -28,7 +28,7 @@ func (s *Store) select{{ MessageName . }}(ctx context.Context, filter pg.Where, 
 	defer cursor.Close()
 	for cursor.Next() {
 		var row {{ MessageName .  }}
-		err := cursor.Scan( &row.{{ getFieldNames .Cols ", &row." }} )
+		err := cursor.Scan( &row.{{ getFieldNames . ", &row." }} )
 		if err != nil {
 			return err
 		}
@@ -39,16 +39,16 @@ func (s *Store) select{{ MessageName . }}(ctx context.Context, filter pg.Where, 
 
 func (s *Store) {{ MessageName .  }}(ctx context.Context, filter pg.Where, employeeFilter pg.Where, productFilter pg.Where) ([]*{{ MessageName .  }}, error) {
 	rows := []*{{ MessageName .  }}{}
-	queries_id := []interface{}{}
+	queries_id := []interface{}{} // must be generated
 	{{range $name, $field := getFKMessages . }}
 	{{ TableName $field.Source.Table }}Tmp := make(map[interface{}]*[]*{{ MessageName $field.Source.Table }} ) {{end}}
 	
 	err := s.select{{ MessageName .  }}(ctx, filter, func(row *{{ MessageName .  }}) {
 		rows = append(rows, row)
-		queries_id = append(queries_id, row.Id)
+		queries_id = append(queries_id, row.Id) // must be generated
 
 		{{range $name, $field := getFKMessages . }}
-			{{ TableName $field.Source.Table }}Tmp[row.Id] = &row.{{ getFieldName $name }} {{end}}
+			{{ TableName $field.Source.Table }}Tmp[ row.{{ getFieldName $field.Target }}] = &row.{{ getFieldName $name }} {{end}}
 	})
 
 	{{range $name, $field := getFKMessages . }}
@@ -83,18 +83,18 @@ func LoadTemplate() *template.Template {
 			}
 			return res
 		},
-		"getColumnNames": func(fields map[string]*field, separator string) string {
+		"getColumnNames": func(t *Table, separator string) string {
 			str := ""
-			for _, f := range fields {
+			for _, f := range t.GetOrderedCols() {
 				if len(f.FK) == 0 && len(f.ColName) > 0 {
 					str = str + f.ColName + separator
 				}
 			}
 			return strings.TrimSuffix(str, separator)
 		},
-		"getFieldNames": func(fields map[string]*field, separator string) string {
+		"getFieldNames": func(t *Table, separator string) string {
 			str := ""
-			for _, f := range fields {
+			for _, f := range t.GetOrderedCols() {
 				if len(f.FK) == 0 && len(f.ColName) > 0 {
 					str = str + f.desc.GetName() + separator
 				}
