@@ -2,11 +2,11 @@
 GOGO_PATH=${GOPATH}/src/github.com/gogo/protobuf
 .PHONY: proto
 proto: 
+	# check how to do it with GO111MODULE=on
 	IMPORT_PATH=
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOPATH}/src/)
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOGO_PATH}/)
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOGO_PATH}/protobuf/)
-	# $(eval IMPORT_PATH=${IMPORT_PATH}:${GOPATH}/src/github.com/roderm/protoc-gen-go-sqlmap/sqlgen/)
 	go get google.golang.org/grpc/cmd/protoc-gen-go-grpc;
 	go install github.com/gogo/protobuf/protoc-gen-gogo;
 	find ./ -type f -name *.proto -exec \
