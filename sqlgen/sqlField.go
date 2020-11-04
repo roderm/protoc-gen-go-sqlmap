@@ -31,13 +31,16 @@ type field struct {
 	ColName   string
 	PK        PK
 	needQuery bool
+	dbfk      string
+	dbfkField string
+	dbfkTable string
 	FK        []fieldFK
 }
 
 type fieldFK struct {
 	message  *generator.Descriptor
 	Target   *field
-	Source   *field
+	PKField  *field
 	relation fkRelation
 }
 
@@ -85,27 +88,33 @@ func (f *field) setFK(tm *TableMessages) {
 	// f.FK.relation = FK_NONE
 	v, err := proto.GetExtension(f.desc.Options, E_Dbfk)
 	if err == nil && v != nil {
-		fkArr := strings.Split(*(v.(*string)), ".")
-		t, ok := tm.GetTableByTableName(fkArr[0])
-		if !ok {
-			panic(fmt.Sprintf("Table %s not found", fkArr[0]))
+		f.dbfk = *(v.(*string))
+		fkArr := strings.Split(f.dbfk, ".")
+		if len(fkArr) != 2 {
 			return
 		}
-		targetField, ok := t.GetColumnByColumnName(fkArr[1])
+		f.dbfkTable = fkArr[0]
+		f.dbfkField = fkArr[1]
+		t, ok := tm.GetTableByTableName(f.dbfkTable)
 		if !ok {
-			panic(fmt.Sprintf("Column %s not found", fkArr[1]))
+			panic(fmt.Sprintf("Table %s not found", f.dbfkTable))
+			return
+		}
+		remoteField, ok := t.GetColumnByColumnName(f.dbfkField)
+		if !ok {
+			panic(fmt.Sprintf("Column %s not found", f.dbfkField))
 			return
 		}
 		newRelation := fieldFK{
-			message: f.Table.desc,
-			Target:  targetField,
-			Source:  f,
+			// message: f.Table.desc,
+			PKField: remoteField,
+			Target:  f,
 		}
-		if targetField.desc.IsRepeated() {
+		if f.desc.IsRepeated() {
 			newRelation.relation = FK_RELATION_MANY_ONE
 		} else {
 			newRelation.relation = FK_RELATION_ONE_ONE
 		}
-		f.FK = append(f.FK, newRelation)
+		remoteField.FK = append(remoteField.FK, newRelation)
 	}
 }

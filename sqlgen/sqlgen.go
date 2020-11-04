@@ -63,7 +63,10 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	`)
 
 	for _, tbl := range tables.messageTables {
+		p.NewImport("github.com/roderm/protoc-gen-go-sqlmap/lib/pg")
+		tbl.ConfigStructs(p)
 		tbl.Querier(p)
+		// tbl.Inserter(p)
 	}
 	if !p.atleastOne {
 		return
