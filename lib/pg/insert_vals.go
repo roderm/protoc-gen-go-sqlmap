@@ -13,10 +13,11 @@ func NewInsert() *inserVals {
 }
 func (v *inserVals) Add(values ...[]interface{}) error {
 	v.values = append(v.values, values...)
+	return nil
 }
 
 func (v *inserVals) Values() []interface{} {
-	values := []interface{}
+	values := []interface{}{}
 	for _, r := range v.values {
 		values = append(values, r...)
 	}
@@ -26,9 +27,7 @@ func (v *inserVals) String() string {
 	base := 1;
 	mRows := []string{}
 	for _, r := range v.values {
-		mRows = append(mRows, 
-			fmt.Sprintf("(%s)", joinN(len(r), *base, ", ")),
-		)
+		mRows = append(mRows, fmt.Sprintf("(%s)", joinN(len(r), &base, ", ")))
 	}
 	return strings.Join(mRows, ", ")
 }

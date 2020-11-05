@@ -10,7 +10,7 @@ type Where func(param_base *int) (string, []interface{})
 
 func NONE() Where {
 	return func(param_base *int) (string, []interface{}) {
-		"", nil
+		return "", nil
 	}
 }
 func EQ(column string, value interface{}) Where {
@@ -28,16 +28,16 @@ func NEQ(column string, value interface{}) Where {
 }
 
 func flatten(in interface{}) []interface{} {
-	out := []interface{}
-	val := reflect.Value(in)
-	switch reflect.TypeOf(d).Kind() {
+	out := []interface{}{}
+	val := reflect.ValueOf(in)
+	switch reflect.TypeOf(in).Kind() {
 	case reflect.Struct:
-		for i := 0; i < val.NumbFields(); i++ {
-			out = append(out, flatten(v.Field(i))...)
+		for i := 0; i < reflect.TypeOf(in).NumField(); i++ {
+			out = append(out, flatten(val.Field(i))...)
 		}
 	case reflect.Array:
-		for i := 0; i < s.Len(); i++ {
-			out = append(out, flatten(v.Index(i))...)
+		for i := 0; i < val.Len(); i++ {
+			out = append(out, flatten(val.Index(i))...)
 		}
 	default:
 		out = append(out, in)
