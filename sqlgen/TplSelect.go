@@ -6,9 +6,10 @@ import (
 )
 
 var selectTpl = `
-func (s *Store) {{ MessageName .  }}(ctx context.Context, opt ...{{ MessageName .  }}) ([]*{{ MessageName .  }}, error) {
-	config := &select{{ MessageName .  }}Config{
+func (s *Store) {{ MessageName .  }}(ctx context.Context, opts ...{{ MessageName .  }}Option) (map[string]*{{ MessageName .  }}, error) {
+	config := &query{{ MessageName .  }}Config{
 		filter: pg.NONE(),
+		rows: make(map[string]*{{ MessageName .  }}),
 	}
 	for _, o := range opts {
 		o(config)
@@ -18,7 +19,7 @@ func (s *Store) {{ MessageName .  }}(ctx context.Context, opt ...{{ MessageName 
 		for _, cb := range config.cb {
 			cb(row)
 		}
-		config.rows = append(config.rows, row)
+		config.rows[row.Id] = row
 	})
 	if err != nil {
 		return config.rows, err
@@ -48,12 +49,12 @@ func (s *Store) select{{ MessageName . }}(ctx context.Context, filter pg.Where, 
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		var row {{ MessageName .  }}
+		row := new({{ MessageName .  }})
 		err := cursor.Scan( &row.{{ getFieldNames . ", &row." }} )
 		if err != nil {
 			return err
 		}
-		withRow(&row)
+		withRow(row)
 	}
 	return nil
 }
@@ -116,7 +117,7 @@ func LoadSelectTemplate() *template.Template {
 		"getColumnNames": func(t *Table, separator string) string {
 			str := ""
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 {
+				if len(f.ColName) > 0 {
 					str = str + f.ColName + separator
 				}
 			}
@@ -125,7 +126,7 @@ func LoadSelectTemplate() *template.Template {
 		"getFieldNames": func(t *Table, separator string) string {
 			str := ""
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 {
+				if len(f.ColName) > 0 {
 					str = str + f.desc.GetName() + separator
 				}
 			}
