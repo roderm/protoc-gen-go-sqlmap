@@ -26,7 +26,7 @@ func (s *Store) {{ MessageName .  }}(ctx context.Context, opts ...{{ MessageName
 	}
 	{{ range $index, $sub := SubQueries . }}
 	if config.load{{ MessageName .  }} {
-	 	_, err = s.{{ MessageName .  }}(ctx, config.opts{{ MessageName $sub }}...)
+	 	_, err = s.{{ MessageName .  }}(ctx, config.opts{{ GetRemoteFieldname $ $sub }}...)
 	}
 	if err != nil {
 	 	return config.rows, err
@@ -90,11 +90,24 @@ func LoadSelectTemplate() *template.Template {
 		"SubQueries": func(t *Table) []*Table {
 			tables := []*Table{}
 			for _, f := range t.Cols {
-				for _, fk := range f.FK {
+				for _, fk := range f.DepFKs {
 					tables = append(tables, fk.Target.Table)
 				}
 			}
 			return tables
+		},
+		"GetRemoteFieldname": GetRemoteFieldname,
+		"GetDataFieldname": func(remote *Table, data *Table, path bool) string {
+			for _, f := range data.Cols {
+				if remote.Name == f.dbfkTable {
+					if f.desc.IsMessage() && path {
+						return f.desc.GetName() + "." + GetRemoteFieldname(remote, data)
+					} else {
+						return f.desc.GetName()
+					}
+				}
+			}
+			return ""
 		},
 		"MessageName": func(t *Table) string {
 			return t.desc.GetName()
@@ -102,8 +115,8 @@ func LoadSelectTemplate() *template.Template {
 		"TableName": func(t *Table) string {
 			return t.Name
 		},
-		"getFKMessages": func(t *Table) map[*field]fieldFK {
-			res := make(map[*field]fieldFK)
+		"getFKMessages": func(t *Table) map[*field]*fieldFK {
+			res := make(map[*field]*fieldFK)
 			for _, f := range t.Cols {
 				if f.desc.IsMessage() || f.desc.IsRepeated() {
 					fk, err := TableMessageStore.GetFKfromType(f)

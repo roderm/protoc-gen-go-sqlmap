@@ -21,12 +21,12 @@ type Table struct {
 	Cols map[string]*field
 }
 
-func (tm *TableMessages) GetFKfromType(f *field) (fieldFK, error) {
+func (tm *TableMessages) GetFKfromType(f *field) (*fieldFK, error) {
 	easyType := strings.Split(f.desc.GetTypeName(), ".")
 	msgName := easyType[len(easyType)-1]
 	t, ok := tm.GetTableByMessageName(msgName)
 	if !ok {
-		return fieldFK{}, fmt.Errorf("Failed loading table for type %s", msgName)
+		return new(fieldFK), fmt.Errorf("Failed loading table for type %s", msgName)
 	}
 	for _, fk := range t.GetFKs() {
 		if fk.Target.Table.Name == f.Table.Name {
@@ -38,7 +38,7 @@ func (tm *TableMessages) GetFKfromType(f *field) (fieldFK, error) {
 		msgName == "Product" {
 		panic(fmt.Errorf("no foreign key found: %s => %+v", msgName, t.GetFKs()))
 	}
-	return fieldFK{}, fmt.Errorf("no foreign key found.. sorry")
+	return new(fieldFK), fmt.Errorf("no foreign key found.. sorry")
 }
 func (tm *Table) GetColumnByMessageName(message string) (*field, bool) {
 	tbl, ok := tm.Cols[message]
@@ -158,10 +158,10 @@ func (m Table) GetPKs() []*field {
 	return fields
 }
 
-func (m Table) GetFKs() []fieldFK {
-	res := []fieldFK{}
+func (m Table) GetFKs() []*fieldFK {
+	res := []*fieldFK{}
 	for _, f := range m.Cols {
-		for _, fk := range f.FK {
+		for _, fk := range f.DepFKs {
 			res = append(res, fk)
 		}
 	}

@@ -34,7 +34,8 @@ type field struct {
 	dbfk      string
 	dbfkField string
 	dbfkTable string
-	FK        []fieldFK
+	FK        fieldFK
+	DepFKs    []*fieldFK
 }
 
 type fieldFK struct {
@@ -105,16 +106,16 @@ func (f *field) setFK(tm *TableMessages) {
 			panic(fmt.Sprintf("Column %s not found", f.dbfkField))
 			return
 		}
-		newRelation := fieldFK{
+		f.FK = fieldFK{
 			// message: f.Table.desc,
 			PKField: remoteField,
 			Target:  f,
 		}
 		if f.desc.IsRepeated() {
-			newRelation.relation = FK_RELATION_MANY_ONE
+			f.FK.relation = FK_RELATION_MANY_ONE
 		} else {
-			newRelation.relation = FK_RELATION_ONE_ONE
+			f.FK.relation = FK_RELATION_ONE_ONE
 		}
-		remoteField.FK = append(remoteField.FK, newRelation)
+		remoteField.DepFKs = append(remoteField.DepFKs, &f.FK)
 	}
 }

@@ -42,17 +42,17 @@ func {{ MessageName . }}OnRow(cb func(*{{ MessageName . }})) {{ MessageName . }}
 	}
 }
 {{range $index, $sub := SubQueries .}}
-func {{ MessageName $ }}With{{ MessageName $sub }}(opts ...{{ MessageName $sub }}Option) {{ MessageName $ }}Option {
+func {{ MessageName $ }}With{{ GetRemoteFieldname $ $sub }}(opts ...{{ MessageName $sub }}Option) {{ MessageName $ }}Option {
 	return func(config *query{{ MessageName $ }}Config) {
 		// {{ TableName $sub }}Tmp := make(map[interface{}]*[]*{{ MessageName $sub }} )
 		ids := []interface{}{}
-		config.load{{ MessageName $sub }} = true
-		config.opts{{ MessageName $sub }} = opts
+		config.load{{ GetRemoteFieldname $ $sub }} = true
+		config.opts{{ GetRemoteFieldname $ $sub }} = opts
 		config.cb = append(config.cb, func(row *{{ MessageName $ }}) {
 			//  {{ TableName $sub }}Tmp[row.{{ GetRemoteFieldname $ $sub }}] = &row.{{ GetFieldnameLinked $ $sub }}
 			 ids = append(ids, row.{{ GetRemoteFieldname $ $sub }})
 		})
-		config.opts{{ MessageName $sub }} = append(config.opts{{ MessageName $sub }}, 
+		config.opts{{ GetRemoteFieldname $ $sub }} = append(config.opts{{ GetRemoteFieldname $ $sub }}, 
 			{{ MessageName $sub }}OnRow(func(row *{{ MessageName $sub }}) {
 				{{ if IsReverseFK $ $sub }}
 				row.{{ GetDataFieldname $ $sub false }} = config.rows[row.{{ GetDataFieldname $ $sub true }}]
@@ -144,6 +144,7 @@ func LoadConfigStructTemplate() *template.Template {
 			return ""
 		},
 		"GetRemoteFieldname": GetRemoteFieldname,
+		"GetRemoteListName":  GetRemoteListName,
 		"GetDataFieldname": func(remote *Table, data *Table, path bool) string {
 			for _, f := range data.Cols {
 				if remote.Name == f.dbfkTable {
@@ -165,14 +166,14 @@ func LoadConfigStructTemplate() *template.Template {
 		"SubQueries": func(t *Table) []*Table {
 			tables := []*Table{}
 			for _, f := range t.Cols {
-				for _, fk := range f.FK {
+				for _, fk := range f.DepFKs {
 					tables = append(tables, fk.Target.Table)
 				}
 			}
 			return tables
 		},
-		"getFKMessages": func(t *Table) map[*field]fieldFK {
-			res := make(map[*field]fieldFK)
+		"getFKMessages": func(t *Table) map[*field]*fieldFK {
+			res := make(map[*field]*fieldFK)
 			for _, f := range t.Cols {
 				if f.desc.IsMessage() || f.desc.IsRepeated() {
 					fk, err := TableMessageStore.GetFKfromType(f)
@@ -186,7 +187,7 @@ func LoadConfigStructTemplate() *template.Template {
 		"getColumnNames": func(t *Table, separator string) string {
 			str := ""
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 {
+				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
 					str = str + f.ColName + separator
 				}
 			}
@@ -195,7 +196,7 @@ func LoadConfigStructTemplate() *template.Template {
 		"getFieldNames": func(t *Table, separator string) string {
 			str := ""
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 {
+				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
 					str = str + f.desc.GetName() + separator
 				}
 			}
@@ -228,16 +229,4 @@ func GetPK(t *Table) *field {
 	}
 	return nil
 
-}
-func GetRemoteFieldname(remote *Table, data *Table) string {
-	for _, f := range data.Cols {
-		if remote.Name == f.dbfkTable {
-			for _, rf := range remote.Cols {
-				if rf.ColName == f.dbfkField {
-					return rf.desc.GetName()
-				}
-			}
-		}
-	}
-	return ""
 }

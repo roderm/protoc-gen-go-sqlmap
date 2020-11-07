@@ -51,7 +51,7 @@ func LoadInsertTemplate() *template.Template {
 		"GetInsertFieldNames": func(t *Table, separator string) string {
 			str := ""
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 && f.PK == PK_NONE {
+				if len(f.DepFKs) == 0 && len(f.ColName) > 0 && f.PK == PK_NONE {
 					str = str + f.desc.GetName() + separator
 				}
 			}
@@ -60,7 +60,7 @@ func LoadInsertTemplate() *template.Template {
 		"GetInsertColNames": func(t *Table, separator string) string {
 			str := ""
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 && f.PK == PK_NONE {
+				if len(f.DepFKs) == 0 && len(f.ColName) > 0 && f.PK == PK_NONE {
 					str = str + f.ColName + separator
 				}
 			}
@@ -72,8 +72,8 @@ func LoadInsertTemplate() *template.Template {
 		"TableName": func(t *Table) string {
 			return t.Name
 		},
-		"getFKMessages": func(t *Table) map[*field]fieldFK {
-			res := make(map[*field]fieldFK)
+		"getFKMessages": func(t *Table) map[*field]*fieldFK {
+			res := make(map[*field]*fieldFK)
 			for _, f := range t.Cols {
 				if f.desc.IsMessage() || f.desc.IsRepeated() {
 					fk, err := TableMessageStore.GetFKfromType(f)
@@ -87,7 +87,7 @@ func LoadInsertTemplate() *template.Template {
 		"GetColumns": func(t *Table) []string {
 			result := []string{}
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 {
+				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
 					result = append(result, f.ColName)
 				}
 			}
@@ -96,7 +96,7 @@ func LoadInsertTemplate() *template.Template {
 		"getColumnNames": func(t *Table, separator string) string {
 			str := ""
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 {
+				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
 					str = str + f.ColName + separator
 				}
 			}
@@ -105,7 +105,7 @@ func LoadInsertTemplate() *template.Template {
 		"getFieldNames": func(t *Table, separator string) string {
 			str := ""
 			for _, f := range t.GetOrderedCols() {
-				if len(f.FK) == 0 && len(f.ColName) > 0 {
+				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
 					str = str + f.desc.GetName() + separator
 				}
 			}
