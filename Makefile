@@ -7,8 +7,9 @@ proto:
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOPATH}/src/)
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOGO_PATH}/)
 	$(eval IMPORT_PATH=${IMPORT_PATH}:${GOGO_PATH}/protobuf/)
-	go get google.golang.org/grpc/cmd/protoc-gen-go-grpc;
-	go install github.com/gogo/protobuf/protoc-gen-gogo;
+	GO111MODULE=off go get google.golang.org/grpc/cmd/protoc-gen-go-grpc;
+	# failes cause there aren't any go files, so we pass true
+	GO111MODULE=off go get github.com/gogo/protobuf | true; 
 	find ./ -type f -name *.proto -exec \
 		protoc \
 			--proto_path=${IMPORT_PATH}:. \
