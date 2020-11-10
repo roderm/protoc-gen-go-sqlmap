@@ -51,7 +51,7 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	p.PluginImports = generator.NewPluginImports(p.Generator)
 	p.file = file
 
-	tables := NewTableMessages(p.file.Messages())
+	NewTableMessages(p.file.Messages())
 	p.P(`
 		type Store struct {
 			conn *sql.DB
@@ -66,7 +66,7 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	p.AddImport(generator.GoImportPath("database/sql"))
 	p.AddImport(generator.GoImportPath("context"))
 
-	for _, tbl := range tables.messageTables {
+	for _, tbl := range GetTM().messageTables {
 		tbl.ConfigStructs(p)
 		tbl.Querier(p)
 		// tbl.Inserter(p)

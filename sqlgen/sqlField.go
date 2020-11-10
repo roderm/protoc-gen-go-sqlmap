@@ -32,15 +32,14 @@ type field struct {
 	PK        PK
 	needQuery bool
 	dbfk      string
-	dbfkField string
+	DbfkField string
 	dbfkTable string
-	FK        []fieldFK
+	FK        fieldFK
 }
 
 type fieldFK struct {
 	message  *generator.Descriptor
-	Target   *field
-	PKField  *field
+	Remote   *field
 	relation fkRelation
 }
 
@@ -94,27 +93,28 @@ func (f *field) setFK(tm *TableMessages) {
 			return
 		}
 		f.dbfkTable = fkArr[0]
-		f.dbfkField = fkArr[1]
+		f.DbfkField = fkArr[1]
 		t, ok := tm.GetTableByTableName(f.dbfkTable)
 		if !ok {
 			panic(fmt.Sprintf("Table %s not found", f.dbfkTable))
-			return
 		}
-		remoteField, ok := t.GetColumnByColumnName(f.dbfkField)
+		remoteField, ok := t.GetColumnByColumnName(f.DbfkField)
 		if !ok {
-			panic(fmt.Sprintf("Column %s not found", f.dbfkField))
-			return
+			panic(fmt.Sprintf("Column %s not found", f.DbfkField))
 		}
-		newRelation := fieldFK{
-			// message: f.Table.desc,
-			PKField: remoteField,
-			Target:  f,
+		f.FK = fieldFK{
+			Remote: remoteField,
+		}
+		if remoteField.Table == nil {
+			panic(fmt.Sprintf("Table is null! %s", remoteField.desc.GetName()))
+		}
+		if f.Table == nil {
+			panic(fmt.Sprintf("Table is null! %s", f.desc.GetName()))
 		}
 		if f.desc.IsRepeated() {
-			newRelation.relation = FK_RELATION_MANY_ONE
+			f.FK.relation = FK_RELATION_MANY_ONE
 		} else {
-			newRelation.relation = FK_RELATION_ONE_ONE
+			f.FK.relation = FK_RELATION_ONE_ONE
 		}
-		remoteField.FK = append(remoteField.FK, newRelation)
 	}
 }
