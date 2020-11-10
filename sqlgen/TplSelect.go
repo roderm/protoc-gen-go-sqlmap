@@ -59,31 +59,6 @@ func (s *Store) select{{ MessageName . }}(ctx context.Context, filter pg.Where, 
 }
 `
 
-// func (s *Store) {{ MessageName .  }}(ctx context.Context, filter pg.Where{{range $name, $field := getFKMessages . }}, employeeFilter pg.Where {{ end }}) ([]*{{ MessageName .  }}, error) {
-// 	rows := []*{{ MessageName .  }}{}
-// 	queries_id := []interface{}{} // must be generated
-// 	{{range $name, $field := getFKMessages . }}
-// 	{{ TableName $field.Source.Table }}Tmp := make(map[interface{}]*[]*{{ MessageName $field.Source.Table }} ) {{end}}
-//
-// 	err := s.select{{ MessageName .  }}(ctx, filter, func(row *{{ MessageName .  }}) {
-// 		rows = append(rows, row)
-// 		queries_id = append(queries_id, row.Id) // must be generated
-//
-// 		{{range $name, $field := getFKMessages . }}
-// 			{{ TableName $field.Source.Table }}Tmp[ row.{{ getFieldName $field.Target }}] = &row.{{ getFieldName $name }} {{end}}
-// 	})
-//
-// 	{{range $name, $field := getFKMessages . }}
-// 	err = s.select{{ MessageName $field.Source.Table }}(ctx, pg.AND(pg.IN("{{ getColumnName $field.Source }}", queries_id...), {{ TableName $field.Source.Table }}Filter), func(row *{{ MessageName $field.Source.Table }}) {
-// 		*{{ TableName $field.Source.Table }}Tmp[row.{{ getFieldName $field.Source }}] = append(*{{ TableName $field.Source.Table }}Tmp[row.{{ getFieldName $field.Source }}], row)
-// 	})
-// 	if err != nil {
-// 		return rows, err
-// 	}
-// 	{{ end }}
-// 	return rows, nil
-// }
-
 func LoadSelectTemplate() *template.Template {
 	tpl, err := template.New("Selects").Funcs(TplFuncs).Parse(selectTpl)
 	if err != nil {

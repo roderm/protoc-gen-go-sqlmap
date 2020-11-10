@@ -1,9 +1,7 @@
 package sqlgen
 
 import (
-	"fmt"
 	"sort"
-	"strings"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
@@ -28,25 +26,6 @@ type Table struct {
 	Cols map[string]*field
 }
 
-func (tm *TableMessages) GetFKfromType(f *field) (*fieldFK, error) {
-	easyType := strings.Split(f.desc.GetTypeName(), ".")
-	msgName := easyType[len(easyType)-1]
-	t, ok := tm.GetTableByMessageName(msgName)
-	if !ok {
-		return new(fieldFK), fmt.Errorf("Failed loading table for type %s", msgName)
-	}
-	for _, fk := range t.GetFKs() {
-		if fk.Target.Table.Name == f.Table.Name {
-			return fk, nil
-		}
-	}
-	if msgName == "Company" ||
-		msgName == "Employee" ||
-		msgName == "Product" {
-		panic(fmt.Errorf("no foreign key found: %s => %+v", msgName, t.GetFKs()))
-	}
-	return new(fieldFK), fmt.Errorf("no foreign key found.. sorry")
-}
 func (tm *Table) GetColumnByMessageName(message string) (*field, bool) {
 	tbl, ok := tm.Cols[message]
 	return tbl, ok
@@ -166,16 +145,6 @@ func (m Table) GetPKs() []*field {
 		}
 	}
 	return fields
-}
-
-func (m Table) GetFKs() []*fieldFK {
-	res := []*fieldFK{}
-	for _, f := range m.Cols {
-		for _, fk := range f.DepFKs {
-			res = append(res, fk)
-		}
-	}
-	return res
 }
 
 func (m *Table) Structs(g Printer) {

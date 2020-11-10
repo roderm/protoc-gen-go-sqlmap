@@ -1,10 +1,5 @@
 package sqlgen
 
-import (
-	"strings"
-	"text/template"
-)
-
 var insertTpl = `
 func (s *Store) {{ MessageName .  }}Insert(ctx context.Context, values ...*{{ MessageName .  }}) (error) {
 	ins := pg.NewInsert()
@@ -46,86 +41,86 @@ func (s *Store) {{ MessageName .  }}Insert(ctx context.Context, values ...*{{ Me
 }
 `
 
-func LoadInsertTemplate() *template.Template {
-	tpl, err := template.New("Selects").Funcs(template.FuncMap{
-		"GetInsertFieldNames": func(t *Table, separator string) string {
-			str := ""
-			for _, f := range t.GetOrderedCols() {
-				if len(f.DepFKs) == 0 && len(f.ColName) > 0 && f.PK == PK_NONE {
-					str = str + f.desc.GetName() + separator
-				}
-			}
-			return strings.TrimSuffix(str, separator)
-		},
-		"GetInsertColNames": func(t *Table, separator string) string {
-			str := ""
-			for _, f := range t.GetOrderedCols() {
-				if len(f.DepFKs) == 0 && len(f.ColName) > 0 && f.PK == PK_NONE {
-					str = str + f.ColName + separator
-				}
-			}
-			return strings.TrimSuffix(str, separator)
-		},
-		"MessageName": func(t *Table) string {
-			return t.desc.GetName()
-		},
-		"TableName": func(t *Table) string {
-			return t.Name
-		},
-		"getFKMessages": func(t *Table) map[*field]*fieldFK {
-			res := make(map[*field]*fieldFK)
-			for _, f := range t.Cols {
-				if f.desc.IsMessage() || f.desc.IsRepeated() {
-					fk, err := TableMessageStore.GetFKfromType(f)
-					if err == nil {
-						res[f] = fk
-					}
-				}
-			}
-			return res
-		},
-		"GetColumns": func(t *Table) []string {
-			result := []string{}
-			for _, f := range t.GetOrderedCols() {
-				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
-					result = append(result, f.ColName)
-				}
-			}
-			return result
-		},
-		"getColumnNames": func(t *Table, separator string) string {
-			str := ""
-			for _, f := range t.GetOrderedCols() {
-				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
-					str = str + f.ColName + separator
-				}
-			}
-			return strings.TrimSuffix(str, separator)
-		},
-		"getFieldNames": func(t *Table, separator string) string {
-			str := ""
-			for _, f := range t.GetOrderedCols() {
-				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
-					str = str + f.desc.GetName() + separator
-				}
-			}
-			return strings.TrimSuffix(str, separator)
-		},
-		"getFieldName": func(f *field) string {
-			return f.desc.GetName()
-		},
-		"getColumnName": func(f *field) string {
-			return f.ColName
-		},
-	}).Parse(insertTpl)
-	if err != nil {
-		panic(err)
-	}
-	return tpl
-}
-func (m *Table) Inserter(g Printer) {
-	err := LoadInsertTemplate().Execute(g, m)
-	if err != nil {
-		panic(err)
-	}
-}
+// func LoadInsertTemplate() *template.Template {
+// 	tpl, err := template.New("Selects").Funcs(template.FuncMap{
+// 		"GetInsertFieldNames": func(t *Table, separator string) string {
+// 			str := ""
+// 			for _, f := range t.GetOrderedCols() {
+// 				if len(f.DepFKs) == 0 && len(f.ColName) > 0 && f.PK == PK_NONE {
+// 					str = str + f.desc.GetName() + separator
+// 				}
+// 			}
+// 			return strings.TrimSuffix(str, separator)
+// 		},
+// 		"GetInsertColNames": func(t *Table, separator string) string {
+// 			str := ""
+// 			for _, f := range t.GetOrderedCols() {
+// 				if len(f.DepFKs) == 0 && len(f.ColName) > 0 && f.PK == PK_NONE {
+// 					str = str + f.ColName + separator
+// 				}
+// 			}
+// 			return strings.TrimSuffix(str, separator)
+// 		},
+// 		"MessageName": func(t *Table) string {
+// 			return t.desc.GetName()
+// 		},
+// 		"TableName": func(t *Table) string {
+// 			return t.Name
+// 		},
+// 		"getFKMessages": func(t *Table) map[*field]*fieldFK {
+// 			res := make(map[*field]*fieldFK)
+// 			for _, f := range t.Cols {
+// 				if f.desc.IsMessage() || f.desc.IsRepeated() {
+// 					fk, err := TableMessageStore.GetFKfromType(f)
+// 					if err == nil {
+// 						res[f] = fk
+// 					}
+// 				}
+// 			}
+// 			return res
+// 		},
+// 		"GetColumns": func(t *Table) []string {
+// 			result := []string{}
+// 			for _, f := range t.GetOrderedCols() {
+// 				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
+// 					result = append(result, f.ColName)
+// 				}
+// 			}
+// 			return result
+// 		},
+// 		"getColumnNames": func(t *Table, separator string) string {
+// 			str := ""
+// 			for _, f := range t.GetOrderedCols() {
+// 				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
+// 					str = str + f.ColName + separator
+// 				}
+// 			}
+// 			return strings.TrimSuffix(str, separator)
+// 		},
+// 		"getFieldNames": func(t *Table, separator string) string {
+// 			str := ""
+// 			for _, f := range t.GetOrderedCols() {
+// 				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
+// 					str = str + f.desc.GetName() + separator
+// 				}
+// 			}
+// 			return strings.TrimSuffix(str, separator)
+// 		},
+// 		"getFieldName": func(f *field) string {
+// 			return f.desc.GetName()
+// 		},
+// 		"getColumnName": func(f *field) string {
+// 			return f.ColName
+// 		},
+// 	}).Parse(insertTpl)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	return tpl
+// }
+// func (m *Table) Inserter(g Printer) {
+// 	err := LoadInsertTemplate().Execute(g, m)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// }

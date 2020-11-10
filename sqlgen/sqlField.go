@@ -35,13 +35,10 @@ type field struct {
 	DbfkField string
 	dbfkTable string
 	FK        fieldFK
-	DepFKs    []*fieldFK
 }
 
 type fieldFK struct {
 	message  *generator.Descriptor
-	Target   *field
-	PKField  *field
 	Remote   *field
 	relation fkRelation
 }
@@ -106,9 +103,7 @@ func (f *field) setFK(tm *TableMessages) {
 			panic(fmt.Sprintf("Column %s not found", f.DbfkField))
 		}
 		f.FK = fieldFK{
-			Remote:  remoteField,
-			PKField: remoteField,
-			Target:  f,
+			Remote: remoteField,
 		}
 		if remoteField.Table == nil {
 			panic(fmt.Sprintf("Table is null! %s", remoteField.desc.GetName()))
@@ -121,6 +116,5 @@ func (f *field) setFK(tm *TableMessages) {
 		} else {
 			f.FK.relation = FK_RELATION_ONE_ONE
 		}
-		// remoteField.DepFKs = append(remoteField.DepFKs, &f.FK)
 	}
 }
