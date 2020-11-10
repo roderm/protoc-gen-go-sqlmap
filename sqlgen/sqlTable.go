@@ -11,6 +11,13 @@ import (
 
 var TableMessageStore *TableMessages
 
+func GetTM() *TableMessages {
+	if TableMessageStore == nil {
+		panic("Tm not loaded")
+	}
+	return TableMessageStore
+}
+
 type TableMessages struct {
 	messageTables map[string]*Table
 }
@@ -70,14 +77,13 @@ func (t *Table) GetOrderedCols() []*field {
 }
 
 func NewTableMessages(messages []*generator.Descriptor) *TableMessages {
-	tm := &TableMessages{
+	TableMessageStore = &TableMessages{
 		messageTables: make(map[string]*Table),
 	}
-	tm.loadTables(messages)
-	tm.loadTableFields()
-	tm.loadTableFieldFKs()
-	TableMessageStore = tm
-	return tm
+	TableMessageStore.loadTables(messages)
+	TableMessageStore.loadTableFields()
+	TableMessageStore.loadTableFieldFKs()
+	return TableMessageStore
 }
 
 func (tm *TableMessages) loadTables(messages []*generator.Descriptor) error {
@@ -106,8 +112,12 @@ func (tm *TableMessages) loadTableFieldFKs() {
 }
 
 func (tm *TableMessages) GetTableByMessageName(tableName string) (*Table, bool) {
-	tbl, ok := tm.messageTables[tableName]
-	return tbl, ok
+	for _, tbl := range tm.messageTables {
+		if tbl.desc.GetName() == tableName {
+			return tbl, true
+		}
+	}
+	return nil, false
 }
 
 func (tm *TableMessages) GetTableByTableName(tableName string) (*Table, bool) {

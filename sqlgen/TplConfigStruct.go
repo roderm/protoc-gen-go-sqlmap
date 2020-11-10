@@ -1,7 +1,6 @@
 package sqlgen
 
 import (
-	"strings"
 	"text/template"
 )
 
@@ -10,9 +9,9 @@ type query{{ MessageName . }}Config struct {
 	filter pg.Where 
 	cb []func(*{{ MessageName . }})
 	rows map[string]*{{ MessageName .  }}
-	{{ range $index, $sub := SubQueries . }}
-	load{{ MessageName $sub }} bool
-	opts{{ MessageName $sub }} []{{ MessageName $sub }}Option{{end}}
+	{{ range $i, $f := SubQueries . }}
+	load{{ getFieldName $f }} bool
+	opts{{ getFieldName $f }} []{{ MessageName $f.FK.Remote.Table }}Option{{end}}
 }
 // TODO: get correct field and type
 // Scan for SQL, only works for now on PK "id" and type string
@@ -41,192 +40,38 @@ func {{ MessageName . }}OnRow(cb func(*{{ MessageName . }})) {{ MessageName . }}
 		s.cb = append(s.cb, cb)
 	}
 }
-{{range $index, $sub := SubQueries .}}
-func {{ MessageName $ }}With{{ GetRemoteFieldname $ $sub }}(opts ...{{ MessageName $sub }}Option) {{ MessageName $ }}Option {
+{{range $i, $f := SubQueries . }}
+func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.Remote.Table }}Option) {{ MessageName $ }}Option {
 	return func(config *query{{ MessageName $ }}Config) {
-		// {{ TableName $sub }}Tmp := make(map[interface{}]*[]*{{ MessageName $sub }} )
+		// {{ TableName $f.Table }}Tmp := make(map[interface{}]*[]*{{ MessageName $f.FK.Remote.Table }} )
 		ids := []interface{}{}
-		config.load{{ GetRemoteFieldname $ $sub }} = true
-		config.opts{{ GetRemoteFieldname $ $sub }} = opts
+		config.load{{ getFieldName $f }} = true
+		config.opts{{ getFieldName $f }} = opts
 		config.cb = append(config.cb, func(row *{{ MessageName $ }}) {
-			//  {{ TableName $sub }}Tmp[row.{{ GetRemoteFieldname $ $sub }}] = &row.{{ GetFieldnameLinked $ $sub }}
-			 ids = append(ids, row.{{ GetRemoteFieldname $ $sub }})
+			//  {{ TableName $f.Table }}Tmp[row.{{ getFieldName $f }}] = &row.{{ getFieldName $f }}
+			 ids = append(ids, row.Id) // {{ getFullFieldName $f.FK.Remote }}
 		})
-		config.opts{{ GetRemoteFieldname $ $sub }} = append(config.opts{{ GetRemoteFieldname $ $sub }}, 
-			{{ MessageName $sub }}OnRow(func(row *{{ MessageName $sub }}) {
-				{{ if IsReverseFK $ $sub }}
-				row.{{ GetDataFieldname $ $sub false }} = config.rows[row.{{ GetDataFieldname $ $sub true }}]
+		config.opts{{ getFieldName $f }} = append(config.opts{{ getFieldName $f }}, 
+			{{ MessageName $f.FK.Remote.Table }}OnRow(func(row *{{ MessageName $f.FK.Remote.Table }}) {
+				{{ if IsReverseFK $f }}
+				row.{{ getFieldName $f }} = config.rows[row.{{ getFieldName $f }}]
 				{{end}}
-				config.rows[row.{{ GetDataFieldname $ $sub true }}].{{ GetFieldnameLinked $ $sub }} = append(config.rows[row.{{ GetDataFieldname $ $sub true }}].{{ GetFieldnameLinked $ $sub }}, row)
-				// *{{ TableName $sub }}Tmp[row.{{ GetDataFieldname $ $sub true }}] = append(*{{ TableName $sub }}Tmp[row.{{ GetDataFieldname $ $sub true }}], row)
+
+				{{if IsRepeated $f }}
+				config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }}, row)
+				{{end}}
+				// *{{ TableName $f.Table }}Tmp[row.{{ getFullFieldName $f.FK.Remote }}] = append(*{{ TableName $f.Table }}Tmp[row.{{ getFullFieldName $f.FK.Remote }}], row)
 			}),
-			{{ MessageName $sub }}Filter(pg.IN("{{ GetDataColname $ $sub}}", ids))) 
+			{{ MessageName $f.FK.Remote.Table }}Filter(pg.IN("{{ $f.DbfkField }}", ids))) 
 	}
 }{{ end }}
 	
 `
 
 func LoadConfigStructTemplate() *template.Template {
-	tpl, err := template.New("ConfigStructs").Funcs(template.FuncMap{
-		"GetPKName": func(t *Table) string {
-			pk := GetPK(t)
-			if pk == nil {
-				return "someID"
-			}
-			return pk.desc.GetName()
-		},
-		"GetPKType": func(t *Table) string {
-			pk := GetPK(t)
-			if pk == nil {
-				return "maybeInt"
-			}
-			switch pk.desc.GetType().String() {
-			case "TYPE_STRING":
-				return "string"
-			case "TYPE_INT64":
-				return "int64"
-			case "TYPE_UINT64":
-				return "uint64"
-			case "TYPE_INT32":
-				return "int32"
-			case "TYPE_UINT32":
-				return "uint32"
-
-			}
-			return pk.desc.GetType().String()
-		},
-		"GetFieldnameLinked": func(remote *Table, data *Table) string {
-			for _, rf := range remote.Cols {
-				mt := strings.Split(rf.desc.GetTypeName(), ".")
-				if mt[len(mt)-1] == data.desc.GetName() {
-					return rf.desc.GetName()
-				}
-			}
-			return "notFound"
-		},
-		// "GetTargetFieldname": func(remote *Table, data *Table) string {
-		// 	for _, f := range data.Cols {
-		// 		if remote.Name == f.dbfkTable {
-		// 			for _, rf := range remote.Cols {
-		// 			}
-		// 		}
-		// 	}
-		// },
-		"IsReverseFK": func(remote *Table, data *Table) bool {
-			for _, f := range data.Cols {
-				if remote.Name == f.dbfkTable {
-					if f.desc.IsMessage() {
-						mt := strings.Split(f.desc.GetTypeName(), ".")
-						return mt[len(mt)-1] == remote.desc.GetName()
-					}
-				}
-			}
-			return false
-		},
-		"GetRemoteColname": func(remote *Table, data *Table) string {
-			for _, f := range data.Cols {
-				if remote.Name == f.dbfkTable {
-					for _, rf := range remote.Cols {
-						if rf.ColName == f.dbfkField {
-							return rf.ColName
-						}
-					}
-				}
-			}
-			return ""
-		},
-		"GetDataColname": func(remote *Table, data *Table) string {
-			for _, f := range data.Cols {
-				if remote.Name == f.dbfkTable {
-					return f.ColName
-				}
-			}
-			return ""
-		},
-		"GetRemoteFieldname": GetRemoteFieldname,
-		"GetRemoteListName":  GetRemoteListName,
-		"GetDataFieldname": func(remote *Table, data *Table, path bool) string {
-			for _, f := range data.Cols {
-				if remote.Name == f.dbfkTable {
-					if f.desc.IsMessage() && path {
-						return f.desc.GetName() + "." + GetRemoteFieldname(remote, data)
-					} else {
-						return f.desc.GetName()
-					}
-				}
-			}
-			return ""
-		},
-		"MessageName": func(t *Table) string {
-			return t.desc.GetName()
-		},
-		"TableName": func(t *Table) string {
-			return t.Name
-		},
-		"SubQueries": func(t *Table) []*Table {
-			tables := []*Table{}
-			for _, f := range t.Cols {
-				for _, fk := range f.DepFKs {
-					tables = append(tables, fk.Target.Table)
-				}
-			}
-			return tables
-		},
-		"getFKMessages": func(t *Table) map[*field]*fieldFK {
-			res := make(map[*field]*fieldFK)
-			for _, f := range t.Cols {
-				if f.desc.IsMessage() || f.desc.IsRepeated() {
-					fk, err := TableMessageStore.GetFKfromType(f)
-					if err == nil {
-						res[f] = fk
-					}
-				}
-			}
-			return res
-		},
-		"getColumnNames": func(t *Table, separator string) string {
-			str := ""
-			for _, f := range t.GetOrderedCols() {
-				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
-					str = str + f.ColName + separator
-				}
-			}
-			return strings.TrimSuffix(str, separator)
-		},
-		"getFieldNames": func(t *Table, separator string) string {
-			str := ""
-			for _, f := range t.GetOrderedCols() {
-				if len(f.DepFKs) == 0 && len(f.ColName) > 0 {
-					str = str + f.desc.GetName() + separator
-				}
-			}
-			return strings.TrimSuffix(str, separator)
-		},
-		"getFieldName": func(f *field) string {
-			return f.desc.GetName()
-		},
-		"getColumnName": func(f *field) string {
-			return f.ColName
-		},
-	}).Parse(configStructTpl)
+	tpl, err := template.New("ConfigStructs").Funcs(TplFuncs).Parse(configStructTpl)
 	if err != nil {
 		panic(err)
 	}
 	return tpl
-}
-func (m *Table) ConfigStructs(g Printer) {
-	err := LoadConfigStructTemplate().Execute(g, m)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func GetPK(t *Table) *field {
-	for _, c := range t.Cols {
-		if c.PK != PK_NONE {
-			return c
-		}
-	}
-	return nil
-
 }

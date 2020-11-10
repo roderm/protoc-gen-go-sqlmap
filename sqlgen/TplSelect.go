@@ -1,7 +1,6 @@
 package sqlgen
 
 import (
-	"strings"
 	"text/template"
 )
 
@@ -16,17 +15,17 @@ func (s *Store) {{ MessageName .  }}(ctx context.Context, opts ...{{ MessageName
 	}
 
 	err := s.select{{ MessageName .  }}(ctx, config.filter, func(row *{{ MessageName .  }}) {
+		config.rows[row.Id] = row
 		for _, cb := range config.cb {
 			cb(row)
 		}
-		config.rows[row.Id] = row
 	})
 	if err != nil {
 		return config.rows, err
 	}
-	{{ range $index, $sub := SubQueries . }}
-	if config.load{{ MessageName .  }} {
-	 	_, err = s.{{ MessageName .  }}(ctx, config.opts{{ GetRemoteFieldname $ $sub }}...)
+	{{ range $i, $f := SubQueries . }}
+	if config.load{{ getFieldName $f  }} {
+	 	_, err = s.{{ MessageName $f.FK.Remote.Table  }}(ctx, config.opts{{ getFieldName $f }}...)
 	}
 	if err != nil {
 	 	return config.rows, err
@@ -86,72 +85,7 @@ func (s *Store) select{{ MessageName . }}(ctx context.Context, filter pg.Where, 
 // }
 
 func LoadSelectTemplate() *template.Template {
-	tpl, err := template.New("Selects").Funcs(template.FuncMap{
-		"SubQueries": func(t *Table) []*Table {
-			tables := []*Table{}
-			for _, f := range t.Cols {
-				for _, fk := range f.DepFKs {
-					tables = append(tables, fk.Target.Table)
-				}
-			}
-			return tables
-		},
-		"GetRemoteFieldname": GetRemoteFieldname,
-		"GetDataFieldname": func(remote *Table, data *Table, path bool) string {
-			for _, f := range data.Cols {
-				if remote.Name == f.dbfkTable {
-					if f.desc.IsMessage() && path {
-						return f.desc.GetName() + "." + GetRemoteFieldname(remote, data)
-					} else {
-						return f.desc.GetName()
-					}
-				}
-			}
-			return ""
-		},
-		"MessageName": func(t *Table) string {
-			return t.desc.GetName()
-		},
-		"TableName": func(t *Table) string {
-			return t.Name
-		},
-		"getFKMessages": func(t *Table) map[*field]*fieldFK {
-			res := make(map[*field]*fieldFK)
-			for _, f := range t.Cols {
-				if f.desc.IsMessage() || f.desc.IsRepeated() {
-					fk, err := TableMessageStore.GetFKfromType(f)
-					if err == nil {
-						res[f] = fk
-					}
-				}
-			}
-			return res
-		},
-		"getColumnNames": func(t *Table, separator string) string {
-			str := ""
-			for _, f := range t.GetOrderedCols() {
-				if len(f.ColName) > 0 {
-					str = str + f.ColName + separator
-				}
-			}
-			return strings.TrimSuffix(str, separator)
-		},
-		"getFieldNames": func(t *Table, separator string) string {
-			str := ""
-			for _, f := range t.GetOrderedCols() {
-				if len(f.ColName) > 0 {
-					str = str + f.desc.GetName() + separator
-				}
-			}
-			return strings.TrimSuffix(str, separator)
-		},
-		"getFieldName": func(f *field) string {
-			return f.desc.GetName()
-		},
-		"getColumnName": func(f *field) string {
-			return f.ColName
-		},
-	}).Parse(selectTpl)
+	tpl, err := template.New("Selects").Funcs(TplFuncs).Parse(selectTpl)
 	if err != nil {
 		panic(err)
 	}
