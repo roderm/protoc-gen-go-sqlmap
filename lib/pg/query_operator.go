@@ -6,13 +6,28 @@ import (
 	"strings"
 )
 
+// Where is a function type that is used to create a WHERE clause and
+// the values to use in an SQL-Query.
 type Where func(param_base *int) (string, []interface{})
 
+// GetWhereClause builds the WHERE clause from any of Where-types
+func GetWhereClause(w Where) (string, []interface{}) {
+	i := 1
+	str, vals := w(&i)
+	if len(str) > 0 {
+		return "WHERE " + str, vals
+	}
+	return "", []interface{}{}
+}
+
+// NONE for using non filtered input
 func NONE() Where {
 	return func(param_base *int) (string, []interface{}) {
 		return "", nil
 	}
 }
+
+// EQ compares values in an SQL-Statement with "="-operator
 func EQ(column string, value interface{}) Where {
 	return func(param_base *int) (string, []interface{}) {
 		*param_base++
@@ -20,6 +35,7 @@ func EQ(column string, value interface{}) Where {
 	}
 }
 
+// NEQ compares values in an SQL-Statement with "!="-operator
 func NEQ(column string, value interface{}) Where {
 	return func(param_base *int) (string, []interface{}) {
 		*param_base++
@@ -41,9 +57,11 @@ func flatten(in interface{}) []interface{} {
 		}
 	default:
 		out = append(out, in)
-    }
-   return out
+	}
+	return out
 }
+
+// IN compares values in an SQL-Statement with "IN (?,?,?,...)"-operator
 func IN(column string, values ...interface{}) Where {
 	return func(param_base *int) (string, []interface{}) {
 		v := flatten(values)
@@ -51,6 +69,7 @@ func IN(column string, values ...interface{}) Where {
 	}
 }
 
+// AND joins two or more Where-types with (cond1 AND cond2)
 func AND(ops ...Where) Where {
 	return func(param_base *int) (string, []interface{}) {
 		values := []interface{}{}
@@ -67,6 +86,7 @@ func AND(ops ...Where) Where {
 	}
 }
 
+// OR joins two or more Where-types with (cond1 OR cond2)
 func OR(ops ...Where) Where {
 	return func(param_base *int) (string, []interface{}) {
 		values := []interface{}{}

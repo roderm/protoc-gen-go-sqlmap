@@ -36,12 +36,3 @@ func (q *Query) String() (string, []interface{}) {
 func (q *Query) Go(ctx context.Context) error {
 	return nil
 }
-
-func GetWhereClause(w Where) (string, []interface{}) {
-	i := 1
-	str, vals := w(&i)
-	if len(str) > 0 {
-		return "WHERE " + str, vals
-	}
-	return "", []interface{}{}
-}
