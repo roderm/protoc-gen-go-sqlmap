@@ -17,8 +17,8 @@ func NewInsert() *InsertVals {
 }
 
 // Add appends one or more rows to the insert store
-func (v *InsertVals) Add(values ...[]interface{}) error {
-	v.values = append(v.values, values...)
+func (v *InsertVals) Add(values ...interface{}) error {
+	v.values = append(v.values, values)
 	return nil
 }
 

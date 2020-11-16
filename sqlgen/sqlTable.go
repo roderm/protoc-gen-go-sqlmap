@@ -68,7 +68,9 @@ func NewTableMessages(messages []*generator.Descriptor) *TableMessages {
 func (tm *TableMessages) loadTables(messages []*generator.Descriptor) error {
 	for _, m := range messages {
 		tbl := NewTable(m)
-		tm.messageTables[m.GetName()] = tbl
+		if len(tbl.Name) > 0 {
+			tm.messageTables[m.GetName()] = tbl
+		}
 	}
 	return nil
 }

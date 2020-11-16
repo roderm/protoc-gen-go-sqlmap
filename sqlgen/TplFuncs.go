@@ -94,25 +94,46 @@ var TplFuncs = template.FuncMap{
 		}
 		return strings.TrimSuffix(str, separator)
 	},
-	"getFieldName": GetFieldName,
-	"getFullFieldName": func(f *field) string {
-		table, ok := GetTM().GetTableByTableName(f.Table.Name)
-		if ok {
-			for _, c := range table.Cols {
-				if f.DbfkField == c.ColName {
-					return f.desc.GetName() + "." + c.desc.GetName()
-				}
-			}
-		}
-		return f.desc.GetName()
-
-	},
+	"getFieldName":     GetFieldName,
+	"getFullFieldName": getFullFieldName,
 	"getColumnName": func(f *field) string {
 		return f.ColName
 	},
-	"IsRepeated": IsRepeated,
+	"IsRepeated":          IsRepeated,
+	"GetInsertFieldNames": GetInsertFieldNames,
+	"GetInsertColNames":   GetInsertColNames,
 }
 
+func getFullFieldName(f *field) string {
+	table, ok := GetTM().GetTableByTableName(f.Table.Name)
+	if ok {
+		for _, c := range table.Cols {
+			if f.DbfkField == c.ColName {
+				return f.desc.GetName() + "." + c.desc.GetName()
+			}
+		}
+	}
+	return f.desc.GetName()
+
+}
+func GetInsertFieldNames(t *Table, separator string) string {
+	str := ""
+	for _, f := range t.GetOrderedCols() {
+		if f.PK != PK_AUTO && (f.FK.Remote == nil || !f.desc.IsRepeated()) && len(f.ColName) > 0 {
+			str = str + getFullFieldName(f) + separator
+		}
+	}
+	return strings.TrimSuffix(str, separator)
+}
+func GetInsertColNames(t *Table, separator string) string {
+	str := ""
+	for _, f := range t.GetOrderedCols() {
+		if f.PK != PK_AUTO && (f.FK.Remote == nil || !f.desc.IsRepeated()) && len(f.ColName) > 0 {
+			str = str + f.ColName + separator
+		}
+	}
+	return strings.TrimSuffix(str, separator)
+}
 func IsRepeated(f *field) bool {
 	return f.desc.IsRepeated()
 }

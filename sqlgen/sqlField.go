@@ -55,17 +55,8 @@ func NewField(table *Table, desc *descriptor.FieldDescriptorProto) *field {
 		Table: table,
 		desc:  desc,
 	}
-	// if f.desc.IsMessage() {
-	// 	// need to check if JSON?
-	// 	f.needQuery = true
-	// }
-	// if f.desc.IsRepeated() {
-	// 	// need to check if JSON?
-	// 	f.needQuery = true
-	// }
 	f.setColName()
 	f.setPK()
-	// f.setFK()
 	return f
 }
 func (f *field) setColName() {
@@ -84,7 +75,6 @@ func (f *field) setPK() {
 }
 
 func (f *field) setFK(tm *TableMessages) {
-	// f.FK.relation = FK_NONE
 	v, err := proto.GetExtension(f.desc.Options, E_Dbfk)
 	if err == nil && v != nil {
 		f.dbfk = *(v.(*string))

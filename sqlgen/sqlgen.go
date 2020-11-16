@@ -3,11 +3,8 @@ package sqlgen
 import (
 	// pb "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
-	"errors"
 	"fmt"
 
-	proto "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
 )
 
@@ -52,6 +49,17 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	p.file = file
 
 	NewTableMessages(p.file.Messages())
+
+	p.AddImport(generator.GoImportPath("github.com/roderm/protoc-gen-go-sqlmap/lib/pg"))
+	p.AddImport(generator.GoImportPath("database/sql"))
+	p.AddImport(generator.GoImportPath("context"))
+
+	fmt.Fprint(p, `
+	var _ = context.TODO
+	var _ = pg.NONE
+	var _ = sql.Open
+	`)
+
 	p.P(`
 		type Store struct {
 			conn *sql.DB
@@ -61,11 +69,6 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 			return &Store{conn}
 		}
 	`)
-
-	p.AddImport(generator.GoImportPath("github.com/roderm/protoc-gen-go-sqlmap/lib/pg"))
-	p.AddImport(generator.GoImportPath("database/sql"))
-	p.AddImport(generator.GoImportPath("context"))
-
 	for _, tbl := range GetTM().messageTables {
 		tbl.ConfigStructs(p)
 		tbl.Querier(p)
@@ -75,203 +78,3 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 		return
 	}
 }
-
-// func (p *SqlGenerator) GetExtension() *descriptor.FieldDescriptorProto {
-// 	for _, ext := range p.file.Extension {
-// 		if *ext.Name == E_Dbcol.Name {
-// 			return ext
-// 		}
-// 	}
-// 	return nil
-// }
-// func (p *SqlGenerator) genFlags(message *generator.Descriptor) {
-// 	p.test(message)
-// }
-// func (p *SqlGenerator) test(message *generator.Descriptor) error {
-// 	for _, field := range message.Field {
-// 		if field.Options != nil {
-// 			continue
-// 		}
-// 		mt := proto.MessageReflect(field)
-// 		v, err := proto.GetExtension(proto.MessageV1(mt), E_Dbcol)
-// 		if err == nil && v.(*string) != nil {
-// 			p.P(fmt.Sprintf("// value ist => %v", v))
-
-// 		} else {
-// 			// panic("NOT registered" + E_Dbcol.Name)
-// 			p.P(fmt.Sprintf("// failed %v", err))
-// 			p.P("// is nil:", fmt.Sprint(mt))
-// 			p.P("// is valid:", fmt.Sprint(mt.IsValid()))
-// 			p.P("// is Descriptor_Length:", fmt.Sprint(mt.Descriptor().ExtensionRanges().Len()))
-// 		}
-// 	}
-// 	return nil
-// }
-func (p *SqlGenerator) Sql(m *generator.Descriptor) error {
-	p.P(`type ` + *m.Name + `Store struct {}`)
-	p.P(`type sql` + *m.Name + `Array []` + *m.Name)
-	p.P(`type sql` + *m.Name + ` ` + *m.Name)
-	p.scanner(m)
-	p.aggregateRow(m)
-	p.printFields(m)
-	return nil
-}
-
-func (p *SqlGenerator) scanner(m *generator.Descriptor) error {
-	p.AddImport(generator.GoImportPath("encoding/json"))
-	p.AddImport(generator.GoImportPath("reflect"))
-	p.P(`
-//Scan imlementes scanner
-func (h *sql` + *m.Name + `Array) Scan(value interface{}) (err error) {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Can't cast %s to []byte", reflect.TypeOf(value))
-	}
-	return json.Unmarshal(buff, h)
-}`)
-	return nil
-}
-
-func (p *SqlGenerator) getEyevipFieldTags(field *descriptor.FieldDescriptorProto, evField *field) error {
-	return nil
-	// if field == nil {
-	// 	return nil
-	// }
-	// if field.Options != nil {
-	// 	var v interface{}
-	// 	var err error
-
-	// 	v, err = proto.GetExtension(field, E_Dbcol)
-	// 	mt := proto.MessageReflect(field)
-	// 	if err == nil && v.(*string) != nil {
-	// 		evField.colName = fmt.Sprintf("value ist => %v", v)
-	// 	} else {
-	// 		// panic("NOT registered" + E_Dbcol.Name)
-	// 		evField.comment = fmt.Sprintf("failed %v", err)
-	// 		p.P("// is nil:", fmt.Sprint(mt))
-	// 		p.P("// is valid:", fmt.Sprint(mt.IsValid()))
-	// 		p.P("// is Descriptor_Length:", fmt.Sprint(mt.Descriptor().ExtensionRanges()))
-	// 	}
-	// 	v, err = proto.GetExtension(field.Options, E_Dbpk)
-	// 	if err == nil && v.(*string) != nil {
-	// 		switch v.(string) {
-	// 		case pkAuto:
-	// 			evField.pk = pkAuto
-	// 		case pkMan:
-	// 			evField.pk = pkMan
-	// 		default:
-	// 			evField.pk = pkNone
-	// 		}
-	// 	}
-	// } else {
-	// 	evField.comment = "no options on field"
-	// }
-	// return nil
-}
-func GetMyExtension(field *descriptor.FieldDescriptorProto) (*string, error) {
-	if field == nil {
-		return nil, errors.New("no field given")
-	}
-	err := errors.New("No options on field")
-	if field.Options != nil {
-		v, err := proto.GetExtension(field.Options, E_Dbcol)
-		if err == nil && v.(*string) != nil {
-			return (v.(*string)), nil
-		}
-		return nil, err
-	}
-	return nil, err
-}
-func (p *SqlGenerator) getFields(m *generator.Descriptor) []*field {
-	ret := []*field{}
-	// for _, f := range m.GetField() {
-	// 	fieldDef := &field{
-	// 		structName: m.GetName(),
-	// 		// tableName:  f.,
-	// 		colName: *f.Name,
-	// 	}
-	// 	p.getEyevipFieldTags(f, fieldDef)
-	// 	ret = append(ret, fieldDef)
-	// }
-
-	for _, msg := range p.file.Messages() {
-		for _, f := range msg.Field {
-			// mymsg := proto.MessageV2(f)
-			evField := new(field)
-			v, err := GetMyExtension(f)
-			if err == nil && v != nil {
-				evField.ColName = fmt.Sprintf("value ist => %s ", *v)
-				ret = append(ret, evField)
-			} else {
-				p.P("/* error: " + err.Error() + "*/")
-			}
-		}
-	}
-
-	return ret
-}
-
-func (p *SqlGenerator) printFields(m *generator.Descriptor) error {
-	// 	fields := GetFields(m)
-	// 	for _, f := range fields {
-	// 		p.P(fmt.Sprintf(`
-	// /*
-	// col: %s
-	// tbld: %s
-	// comment: %s
-	// */`,
-	// 			f.colName,
-	// 			f.tableName,
-	// 			f.comment,
-	// 		))
-	// 	}
-	return nil
-}
-func (p *SqlGenerator) aggregateRow(m *generator.Descriptor) error {
-	// for _, ext := range proto.GetExtensions() {
-	// 	p.P("// Registred ext: " + ext.Name)
-	// }
-
-	// 	fields := GetFields(m)
-	// 	p.P(`
-	// 	//getAggreatedRow
-	// 	func (s *sql` + *m.Name + `Array) getAggreatedRow() string {
-	// 	return ` + "`" + `
-	// 		SELECT
-	// 			` +
-	// 		func() string {
-	// 			ret := []string{}
-	// 			for _, pk := range fields.GetPKs() {
-	// 				ret = append(ret, fmt.Sprintf("\"%s\".\"%s\" as \"%s\", \n", pk.tableName, pk.colName, pk.colName))
-	// 			}
-	// 			return strings.Join(ret, "")
-	// 		}() + `
-	// 			JSON_AGG( JSON_BUILD_OBJECT(
-	// 				` +
-	// 		func() string {
-	// 			lines := []string{}
-	// 			for _, f := range m.GetField() {
-	// 				lines = append(lines, "'"+*f.Name+"', \"example_children\".\""+*f.Name+"\"")
-	// 			}
-	// 			return strings.Join(lines, ", ")
-	// 		}() + `
-	// 			) ) AS "values"
-	// 		FROM "example_children"
-	// 		GROUP BY ` +
-	// 		func() string {
-	// 			ret := []string{}
-	// 			for _, pk := range fields.GetPKs() {
-	// 				ret = append(ret, fmt.Sprintf("\"%s\".\"%s\"", pk.tableName, pk.colName))
-	// 			}
-	// 			return strings.Join(ret, ",")
-	// 		}() + `
-	// 	` + "`" + `
-	// }`)
-	return nil
-}
-
-// // GenerateImports produces the import declarations for this file.
-// // It is called after Generate.
-// func (p *SqlGenerator) GenerateImports(file *generator.FileDescriptor) {
-// 	return
-// }
