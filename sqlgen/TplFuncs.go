@@ -6,7 +6,7 @@ import (
 )
 
 func (m *Table) ConfigStructs(g Printer) {
-	err := LoadConfigStructTemplate().Execute(g, m)
+	err := LoadConfigStructTemplate(g).Execute(g, m)
 	if err != nil {
 		panic(err)
 	}
@@ -49,6 +49,13 @@ func GetType(f *field) string {
 	return f.desc.GetType().String()
 }
 
+func GetTemplateFuns(p Printer) template.FuncMap {
+	TplFuncs["Store"] = func() string {
+		return p.StoreName()
+	}
+	return TplFuncs
+}
+
 var TplFuncs = template.FuncMap{
 	"SubQueries": SubQueries,
 	"GetPKName": func(t *Table) string {
@@ -65,11 +72,9 @@ var TplFuncs = template.FuncMap{
 		}
 		return GetType(pk)
 	},
-
 	"IsReverseFK": func(pk *field) bool {
 		return false
 	},
-
 	"MessageName": func(t *Table) string {
 		return t.desc.GetName()
 	},
@@ -119,16 +124,29 @@ func getFullFieldName(f *field) string {
 func GetInsertFieldNames(t *Table, separator string) string {
 	str := ""
 	for _, f := range t.GetOrderedCols() {
-		if f.PK != PK_AUTO && (f.FK.Remote == nil || !f.desc.IsRepeated()) && len(f.ColName) > 0 {
-			str = str + getFullFieldName(f) + separator
+		if f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 {
+			if f.desc.IsMessage() {
+				tbl, ok := GetTM().GetTableByTableName(f.dbfkTable)
+				if !ok {
+					continue
+				}
+				fld, ok := tbl.GetColumnByMessageName(*f.FK.Remote.desc.Name)
+				if !ok {
+					continue
+				}
+				str = str + GetFieldName(f) + "." + GetFieldName(fld) + separator
+			} else {
+				str = str + GetFieldName(f) + separator
+			}
 		}
 	}
 	return strings.TrimSuffix(str, separator)
 }
+
 func GetInsertColNames(t *Table, separator string) string {
 	str := ""
 	for _, f := range t.GetOrderedCols() {
-		if f.PK != PK_AUTO && (f.FK.Remote == nil || !f.desc.IsRepeated()) && len(f.ColName) > 0 {
+		if f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 {
 			str = str + f.ColName + separator
 		}
 	}
