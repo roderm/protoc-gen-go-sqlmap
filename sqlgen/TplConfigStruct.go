@@ -6,7 +6,7 @@ import (
 
 var configStructTpl = `
 type query{{ MessageName . }}Config struct {
-	Store *Store
+	Store *{{ Store }}
 	filter pg.Where 
 	beforeReturn []func(map[string]*{{ MessageName .  }}) error
 	cb []func(*{{ MessageName . }})
@@ -67,8 +67,8 @@ func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.R
 	
 `
 
-func LoadConfigStructTemplate() *template.Template {
-	tpl, err := template.New("ConfigStructs").Funcs(TplFuncs).Parse(configStructTpl)
+func LoadConfigStructTemplate(p Printer) *template.Template {
+	tpl, err := template.New("ConfigStructs").Funcs(GetTemplateFuns(p)).Parse(configStructTpl)
 	if err != nil {
 		panic(err)
 	}
