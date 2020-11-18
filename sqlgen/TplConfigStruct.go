@@ -6,7 +6,9 @@ import (
 
 var configStructTpl = `
 type query{{ MessageName . }}Config struct {
+	Store *{{ Store }}
 	filter pg.Where 
+	beforeReturn []func(map[string]*{{ MessageName .  }}) error
 	cb []func(*{{ MessageName . }})
 	rows map[string]*{{ MessageName .  }}
 	{{ range $i, $f := SubQueries . }}
@@ -43,13 +45,11 @@ func {{ MessageName . }}OnRow(cb func(*{{ MessageName . }})) {{ MessageName . }}
 {{range $i, $f := SubQueries . }}
 func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.Remote.Table }}Option) {{ MessageName $ }}Option {
 	return func(config *query{{ MessageName $ }}Config) {
-		// {{ TableName $f.Table }}Tmp := make(map[interface{}]*[]*{{ MessageName $f.FK.Remote.Table }} )
 		ids := []interface{}{}
 		config.load{{ getFieldName $f }} = true
 		config.opts{{ getFieldName $f }} = opts
 		config.cb = append(config.cb, func(row *{{ MessageName $ }}) {
-			//  {{ TableName $f.Table }}Tmp[row.{{ getFieldName $f }}] = &row.{{ getFieldName $f }}
-			 ids = append(ids, row.Id) // {{ getFullFieldName $f.FK.Remote }}
+			 ids = append(ids, row.Id)
 		})
 		config.opts{{ getFieldName $f }} = append(config.opts{{ getFieldName $f }}, 
 			{{ MessageName $f.FK.Remote.Table }}OnRow(func(row *{{ MessageName $f.FK.Remote.Table }}) {
@@ -60,7 +60,6 @@ func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.R
 				{{if IsRepeated $f }}
 				config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }}, row)
 				{{end}}
-				// *{{ TableName $f.Table }}Tmp[row.{{ getFullFieldName $f.FK.Remote }}] = append(*{{ TableName $f.Table }}Tmp[row.{{ getFullFieldName $f.FK.Remote }}], row)
 			}),
 			{{ MessageName $f.FK.Remote.Table }}Filter(pg.IN("{{ $f.DbfkField }}", ids))) 
 	}
@@ -68,8 +67,8 @@ func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.R
 	
 `
 
-func LoadConfigStructTemplate() *template.Template {
-	tpl, err := template.New("ConfigStructs").Funcs(TplFuncs).Parse(configStructTpl)
+func LoadConfigStructTemplate(p Printer) *template.Template {
+	tpl, err := template.New("ConfigStructs").Funcs(GetTemplateFuns(p)).Parse(configStructTpl)
 	if err != nil {
 		panic(err)
 	}

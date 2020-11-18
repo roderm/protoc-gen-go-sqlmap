@@ -6,7 +6,7 @@ import (
 )
 
 func (m *Table) ConfigStructs(g Printer) {
-	err := LoadConfigStructTemplate().Execute(g, m)
+	err := LoadConfigStructTemplate(g).Execute(g, m)
 	if err != nil {
 		panic(err)
 	}
@@ -49,6 +49,13 @@ func GetType(f *field) string {
 	return f.desc.GetType().String()
 }
 
+func GetTemplateFuns(p Printer) template.FuncMap {
+	TplFuncs["Store"] = func() string {
+		return p.StoreName()
+	}
+	return TplFuncs
+}
+
 var TplFuncs = template.FuncMap{
 	"SubQueries": SubQueries,
 	"GetPKName": func(t *Table) string {
@@ -65,11 +72,9 @@ var TplFuncs = template.FuncMap{
 		}
 		return GetType(pk)
 	},
-
 	"IsReverseFK": func(pk *field) bool {
 		return false
 	},
-
 	"MessageName": func(t *Table) string {
 		return t.desc.GetName()
 	},
@@ -94,25 +99,59 @@ var TplFuncs = template.FuncMap{
 		}
 		return strings.TrimSuffix(str, separator)
 	},
-	"getFieldName": GetFieldName,
-	"getFullFieldName": func(f *field) string {
-		table, ok := GetTM().GetTableByTableName(f.Table.Name)
-		if ok {
-			for _, c := range table.Cols {
-				if f.DbfkField == c.ColName {
-					return f.desc.GetName() + "." + c.desc.GetName()
-				}
-			}
-		}
-		return f.desc.GetName()
-
-	},
+	"getFieldName":     GetFieldName,
+	"getFullFieldName": getFullFieldName,
 	"getColumnName": func(f *field) string {
 		return f.ColName
 	},
-	"IsRepeated": IsRepeated,
+	"IsRepeated":          IsRepeated,
+	"GetInsertFieldNames": GetInsertFieldNames,
+	"GetInsertColNames":   GetInsertColNames,
 }
 
+func getFullFieldName(f *field) string {
+	table, ok := GetTM().GetTableByTableName(f.Table.Name)
+	if ok {
+		for _, c := range table.Cols {
+			if f.DbfkField == c.ColName {
+				return f.desc.GetName() + "." + c.desc.GetName()
+			}
+		}
+	}
+	return f.desc.GetName()
+
+}
+func GetInsertFieldNames(t *Table, separator string) string {
+	str := ""
+	for _, f := range t.GetOrderedCols() {
+		if f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 {
+			if f.desc.IsMessage() {
+				tbl, ok := GetTM().GetTableByTableName(f.dbfkTable)
+				if !ok {
+					continue
+				}
+				fld, ok := tbl.GetColumnByMessageName(*f.FK.Remote.desc.Name)
+				if !ok {
+					continue
+				}
+				str = str + GetFieldName(f) + "." + GetFieldName(fld) + separator
+			} else {
+				str = str + GetFieldName(f) + separator
+			}
+		}
+	}
+	return strings.TrimSuffix(str, separator)
+}
+
+func GetInsertColNames(t *Table, separator string) string {
+	str := ""
+	for _, f := range t.GetOrderedCols() {
+		if f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 {
+			str = str + f.ColName + separator
+		}
+	}
+	return strings.TrimSuffix(str, separator)
+}
 func IsRepeated(f *field) bool {
 	return f.desc.IsRepeated()
 }

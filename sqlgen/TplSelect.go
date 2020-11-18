@@ -5,8 +5,9 @@ import (
 )
 
 var selectTpl = `
-func (s *Store) {{ MessageName .  }}(ctx context.Context, opts ...{{ MessageName .  }}Option) (map[string]*{{ MessageName .  }}, error) {
+func (s *{{ Store }}) {{ MessageName .  }}(ctx context.Context, opts ...{{ MessageName .  }}Option) (map[string]*{{ MessageName .  }}, error) {
 	config := &query{{ MessageName .  }}Config{
+		Store: s,
 		filter: pg.NONE(),
 		rows: make(map[string]*{{ MessageName .  }}),
 	}
@@ -31,9 +32,15 @@ func (s *Store) {{ MessageName .  }}(ctx context.Context, opts ...{{ MessageName
 	 	return config.rows, err
 	}
 	{{ end }}
+	for _, cb := range config.beforeReturn {
+		err = cb(config.rows)
+		if err != nil {
+			return config.rows, err
+		}
+	}
 	return config.rows, nil
 }
-func (s *Store) select{{ MessageName . }}(ctx context.Context, filter pg.Where, withRow func(*{{ MessageName .  }})) error {
+func (s *{{ Store }}) select{{ MessageName . }}(ctx context.Context, filter pg.Where, withRow func(*{{ MessageName .  }})) error {
 	where, vals := pg.GetWhereClause(filter)
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
 	SELECT {{ getColumnNames .  ", " }} 
@@ -59,15 +66,15 @@ func (s *Store) select{{ MessageName . }}(ctx context.Context, filter pg.Where, 
 }
 `
 
-func LoadSelectTemplate() *template.Template {
-	tpl, err := template.New("Selects").Funcs(TplFuncs).Parse(selectTpl)
+func LoadSelectTemplate(p Printer) *template.Template {
+	tpl, err := template.New("Selects").Funcs(GetTemplateFuns(p)).Parse(selectTpl)
 	if err != nil {
 		panic(err)
 	}
 	return tpl
 }
 func (m *Table) Querier(g Printer) {
-	err := LoadSelectTemplate().Execute(g, m)
+	err := LoadSelectTemplate(g).Execute(g, m)
 	if err != nil {
 		panic(err)
 	}

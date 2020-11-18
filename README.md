@@ -38,8 +38,10 @@ or for the sub-query:
 - [] Implement loading of one-to-many
 - [] Implement loading of one-to-many
 - [] Write tests for querying
+- [] Add multiple FKs for single Message
 - [] Implement insert
 - [] Implement update
+- [] Support `oneOf` type in proto3
 - [] Implement other Database-Syntax
     - [] CockroachDB
     - [] PostgreSQL
