@@ -33,7 +33,7 @@ func (v *InsertVals) Values() []interface{} {
 
 // String returns the VALUES-Clause with the size of given value-rows
 func (v *InsertVals) String() string {
-	base := 1
+	base := 0
 	mRows := []string{}
 	for _, r := range v.values {
 		mRows = append(mRows, fmt.Sprintf("(%s)", joinN(len(r), &base, ", ")))
