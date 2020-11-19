@@ -19,14 +19,13 @@ func GetPK(t *Table) *field {
 		}
 	}
 	return nil
-
 }
 
 func SubQueries(t *Table) []*field {
 	foreignKeys := []*field{}
 	for _, f := range t.Cols {
 		// foreignKeys = append(foreignKeys, f.DepFKs...)
-		if f.FK.Remote != nil {
+		if f.FK.Remote != nil && f.desc.IsMessage() {
 			foreignKeys = append(foreignKeys, f)
 		}
 	}
@@ -58,6 +57,9 @@ func GetTemplateFuns(p Printer) template.FuncMap {
 
 var TplFuncs = template.FuncMap{
 	"SubQueries": SubQueries,
+	"GetPKCol": func(t *Table) string {
+		return GetPK(t).ColName
+	},
 	"GetPKName": func(t *Table) string {
 		pk := GetPK(t)
 		if pk == nil {
@@ -72,7 +74,7 @@ var TplFuncs = template.FuncMap{
 		}
 		return GetType(pk)
 	},
-	"IsReverseFK": func(pk *field) bool {
+	"IsReverseFK": func(fk *field) bool {
 		return false
 	},
 	"MessageName": func(t *Table) string {
@@ -123,21 +125,31 @@ func getFullFieldName(f *field) string {
 }
 func GetInsertFieldNames(t *Table, separator string) string {
 	str := ""
-	for _, f := range t.GetOrderedCols() {
-		if f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 {
-			if f.desc.IsMessage() {
-				tbl, ok := GetTM().GetTableByTableName(f.dbfkTable)
-				if !ok {
-					continue
-				}
-				fld, ok := tbl.GetColumnByMessageName(*f.FK.Remote.desc.Name)
-				if !ok {
-					continue
-				}
-				str = str + GetFieldName(f) + "." + GetFieldName(fld) + separator
-			} else {
-				str = str + GetFieldName(f) + separator
+	cols := []string{}
+	inCols := func(new string) bool {
+		for _, c := range cols {
+			if new == c {
+				return true
 			}
+		}
+		return false
+	}
+	for _, f := range t.GetOrderedCols() {
+		if f.PK == PK_MAN || (f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 && !inCols(f.ColName)) {
+			// if f.desc.IsMessage() {
+			// 	tbl, ok := GetTM().GetTableByTableName(f.dbfkTable)
+			// 	if !ok {
+			// 		continue
+			// 	}
+			// 	fld, ok := tbl.GetColumnByMessageName(*f.FK.Remote.desc.Name)
+			// 	if !ok {
+			// 		continue
+			// 	}
+			// 	str = str + GetFieldName(f) + "." + GetFieldName(fld) + separator
+			// } else {
+			str = str + GetFieldName(f) + separator
+			// }
+			cols = append(cols, f.ColName)
 		}
 	}
 	return strings.TrimSuffix(str, separator)
@@ -145,8 +157,18 @@ func GetInsertFieldNames(t *Table, separator string) string {
 
 func GetInsertColNames(t *Table, separator string) string {
 	str := ""
+	cols := []string{}
+	inCols := func(new string) bool {
+		for _, c := range cols {
+			if new == c {
+				return true
+			}
+		}
+		return false
+	}
 	for _, f := range t.GetOrderedCols() {
-		if f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 {
+		if f.PK == PK_MAN || (f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 && !inCols(f.ColName)) {
+			cols = append(cols, f.ColName)
 			str = str + f.ColName + separator
 		}
 	}

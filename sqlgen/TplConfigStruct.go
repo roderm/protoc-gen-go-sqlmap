@@ -26,6 +26,11 @@ func (m *{{ MessageName . }}) Scan(value interface{}) error {
 	return nil
 }
 
+func (m *{{ MessageName . }}) Value() (driver.Value, error) {
+	return m.{{ GetPKName . }}, nil
+}
+
+
 type {{ MessageName . }}Option func(*query{{ MessageName . }}Config)
 func {{ MessageName . }}Filter(filter pg.Where) {{ MessageName . }}Option {
 	return func(config *query{{ MessageName . }}Config) {
@@ -54,11 +59,19 @@ func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.R
 		config.opts{{ getFieldName $f }} = append(config.opts{{ getFieldName $f }}, 
 			{{ MessageName $f.FK.Remote.Table }}OnRow(func(row *{{ MessageName $f.FK.Remote.Table }}) {
 				{{ if IsReverseFK $f }}
-				row.{{ getFieldName $f }} = config.rows[row.{{ getFieldName $f }}]
+				if config.rows[row.{{ getFieldName $f }}] != nil {
+					row.{{ getFieldName $f }} = config.rows[row.{{ getFieldName $f }}]
+				}
 				{{end}}
 
 				{{if IsRepeated $f }}
-				config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }}, row)
+				if config.rows[row.{{ getFullFieldName $f.FK.Remote }}] != nil {
+					config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }}, row)
+				}
+				{{else}}
+				if config.rows[row.Id] != nil {
+					config.rows[row.Id].{{ getFieldName $f }} = row
+				}
 				{{end}}
 			}),
 			{{ MessageName $f.FK.Remote.Table }}Filter(pg.IN("{{ $f.DbfkField }}", ids))) 
