@@ -3,7 +3,7 @@ This is a protobuf-plugin based on [gogo](https://github.com/gogo/protobuf) to g
 
 ## Usage:
 * Clone this repo (churrently you should checkout `dev`)
-* use the `make install` to install `protoc-gen-go-sqlmap` into you're $GOPATH
+* use the `make install` to install `protoc-gen-go-sqlmap` into your $GOPATH
 * in `protoc` you can now use `--go-sqlmap_out=.`
 
 To make use of this plugin, add following extensions to you .proto-file:
