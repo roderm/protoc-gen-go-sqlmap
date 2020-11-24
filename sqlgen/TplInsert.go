@@ -8,9 +8,9 @@ func (m *{{ MessageName .  }}) Insert(s *{{ Store }}, ctx context.Context) (erro
 	ins.Add(m.{{ GetInsertFieldNames .  ", m." }})
 
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
-		INSERT INTO {{ TableName . }} ( {{ GetInsertColNames .  ", " }} )
+		INSERT INTO "{{ TableName . }}" ( "{{ GetInsertColNames .  "\", \"" }}" )
 		VALUES ` + "`" + ` + ins.String() + ` + "`" + `
-		RETURNING {{ getColumnNames . ", " }}
+		RETURNING "{{ getColumnNames . "\", \"" }}"
 		` + "`" + `)
 	
 	if err != nil {

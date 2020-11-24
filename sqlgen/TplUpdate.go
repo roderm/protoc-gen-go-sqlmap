@@ -2,13 +2,13 @@ package sqlgen
 
 import "text/template"
 
-var deleteTpl = `
-func (m *{{ MessageName .  }}) Delete(s *{{ Store }}, ctx context.Context) (error) {
+var updateTpl = `
+func (m *{{ MessageName .  }}) Update(s *{{ Store }}, ctx context.Context) (error) {
 
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
-	DELETE FROM "{{ TableName . }}"
-	WHERE "{{ GetPKCol . }}" = $1
-	RETURNING "{{ getColumnNames . "\", \"" }}"
+	UPDATE {{ TableName . }} 
+	WHERE {{ GetPKCol . }} = $1
+	RETURNING {{ getColumnNames . ", " }}
 		` + "`" + `)
 	if err != nil {
 		return err
@@ -29,16 +29,16 @@ func (m *{{ MessageName .  }}) Delete(s *{{ Store }}, ctx context.Context) (erro
 }
 `
 
-func LoadDeleteTemplate(p Printer) *template.Template {
-	tpl, err := template.New("Delete").Funcs(GetTemplateFuns(p)).Parse(deleteTpl)
+func LoadUpdateTemplate(p Printer) *template.Template {
+	tpl, err := template.New("Update").Funcs(GetTemplateFuns(p)).Parse(updateTpl)
 	if err != nil {
 		panic(err)
 	}
 	return tpl
 }
 
-func (m *Table) Deleter(g Printer) {
-	err := LoadDeleteTemplate(g).Execute(g, m)
+func (m *Table) Updater(g Printer) {
+	err := LoadUpdateTemplate(g).Execute(g, m)
 	if err != nil {
 		panic(err)
 	}
