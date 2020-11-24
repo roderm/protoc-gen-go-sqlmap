@@ -43,8 +43,8 @@ func (s *{{ Store }}) {{ MessageName .  }}(ctx context.Context, opts ...{{ Messa
 func (s *{{ Store }}) select{{ MessageName . }}(ctx context.Context, filter pg.Where, withRow func(*{{ MessageName .  }})) error {
 	where, vals := pg.GetWhereClause(filter)
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
-	SELECT {{ getColumnNames .  ", " }} 
-	FROM {{ TableName . }}
+	SELECT "{{ getColumnNames .  "\", \"" }}" 
+	FROM "{{ TableName . }}"
 	` + "`" + `+where)
 	if err != nil {
 		return err
