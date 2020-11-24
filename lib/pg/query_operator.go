@@ -12,7 +12,7 @@ type Where func(paramBase *int) (string, []interface{})
 
 // GetWhereClause builds the WHERE clause from any of Where-types
 func GetWhereClause(w Where) (string, []interface{}) {
-	i := 1
+	i := 0
 	str, vals := w(&i)
 	if len(str) > 0 {
 		return "WHERE " + str, vals

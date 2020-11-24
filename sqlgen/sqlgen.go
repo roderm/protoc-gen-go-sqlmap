@@ -64,12 +64,14 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 
 	p.AddImport(generator.GoImportPath("github.com/roderm/protoc-gen-go-sqlmap/lib/pg"))
 	p.AddImport(generator.GoImportPath("database/sql"))
+	p.AddImport(generator.GoImportPath("database/sql/driver"))
 	p.AddImport(generator.GoImportPath("context"))
 
 	fmt.Fprint(p, `
 	var _ = context.TODO
 	var _ = pg.NONE
 	var _ = sql.Open
+	var _ = driver.IsValue
 	`)
 
 	p.P(`//` + p.file.GetPackage())
@@ -88,6 +90,7 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 		tbl.ConfigStructs(p)
 		tbl.Querier(p)
 		tbl.Inserter(p)
+		tbl.Deleter(p)
 	}
 	if !p.atleastOne {
 		return

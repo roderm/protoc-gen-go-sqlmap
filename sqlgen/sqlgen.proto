@@ -11,12 +11,18 @@ enum PK {
     MAN = 2;
 }
 
+extend google.protobuf.FileOptions {
+    optional bool sqlgen = 800200;
+    optional string StoreName = 800201;
+}
+
 extend google.protobuf.MessageOptions {
     optional string dbtable = 800100;
     optional bool dbselect = 800101;
     optional bool dbinsert = 800102;
     // optional bool dbupdate = 800103;
 }
+
 extend google.protobuf.FieldOptions {
     optional string dbcol = 800110;
     optional PK dbpk = 800111;

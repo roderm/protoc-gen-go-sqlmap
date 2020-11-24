@@ -23,7 +23,7 @@ func (m *{{ MessageName .  }}) Insert(s *{{ Store }}, ctx context.Context) (erro
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		err := cursor.Scan( m.{{ getFieldNames . ", m." }} )
+		err := cursor.Scan( &m.{{ getFieldNames . ", &m." }} )
 		if err != nil {
 			return err
 		}
