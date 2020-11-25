@@ -1,8 +1,9 @@
-package sqlgen
+package generator
 
 import "text/template"
 
 var insertTpl = `
+{{ if .Create }}
 func (m *{{ MessageName .  }}) Insert(s *{{ Store }}, ctx context.Context) (error) {
 	ins := pg.NewInsert()
 	ins.Add(m.{{ GetInsertFieldNames .  ", m." }})
@@ -30,6 +31,7 @@ func (m *{{ MessageName .  }}) Insert(s *{{ Store }}, ctx context.Context) (erro
 	}
 	return nil
 }
+{{end}}
 `
 
 func LoadInsertTemplate(p Printer) *template.Template {

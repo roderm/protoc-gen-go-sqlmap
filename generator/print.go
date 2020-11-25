@@ -1,4 +1,4 @@
-package sqlgen
+package generator
 
 type Printer interface {
 	StoreName() string

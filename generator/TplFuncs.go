@@ -1,8 +1,10 @@
-package sqlgen
+package generator
 
 import (
 	"strings"
 	"text/template"
+
+	"github.com/roderm/protoc-gen-go-sqlmap/sqlgen"
 )
 
 func (m *Table) ConfigStructs(g Printer) {
@@ -14,7 +16,7 @@ func (m *Table) ConfigStructs(g Printer) {
 
 func GetPK(t *Table) *field {
 	for _, c := range t.Cols {
-		if c.PK != PK_NONE {
+		if c.PK != sqlgen.PK_NONE {
 			return c
 		}
 	}
@@ -25,7 +27,7 @@ func SubQueries(t *Table) []*field {
 	foreignKeys := []*field{}
 	for _, f := range t.Cols {
 		// foreignKeys = append(foreignKeys, f.DepFKs...)
-		if f.FK.Remote != nil && f.desc.IsMessage() {
+		if f.FK.Remote != nil && f.desc.IsMessage() && f.FK.Remote.Table.Read {
 			foreignKeys = append(foreignKeys, f)
 		}
 	}
@@ -135,7 +137,7 @@ func GetInsertFieldNames(t *Table, separator string) string {
 		return false
 	}
 	for _, f := range t.GetOrderedCols() {
-		if f.PK == PK_MAN || (f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 && !inCols(f.ColName)) {
+		if f.PK == sqlgen.PK_MAN || (f.PK != sqlgen.PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 && !inCols(f.ColName)) {
 			// if f.desc.IsMessage() {
 			// 	tbl, ok := GetTM().GetTableByTableName(f.dbfkTable)
 			// 	if !ok {
@@ -167,7 +169,7 @@ func GetInsertColNames(t *Table, separator string) string {
 		return false
 	}
 	for _, f := range t.GetOrderedCols() {
-		if f.PK == PK_MAN || (f.PK != PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 && !inCols(f.ColName)) {
+		if f.PK == sqlgen.PK_MAN || (f.PK != sqlgen.PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0 && !inCols(f.ColName)) {
 			cols = append(cols, f.ColName)
 			str = str + f.ColName + separator
 		}

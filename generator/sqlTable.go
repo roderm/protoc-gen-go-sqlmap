@@ -1,10 +1,11 @@
-package sqlgen
+package generator
 
 import (
 	"sort"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
+	"github.com/roderm/protoc-gen-go-sqlmap/sqlgen"
 )
 
 var TableMessageStore *TableMessages
@@ -21,9 +22,13 @@ type TableMessages struct {
 }
 
 type Table struct {
-	Name string
-	desc *generator.Descriptor
-	Cols map[string]*field
+	Name   string
+	desc   *generator.Descriptor
+	Cols   map[string]*field
+	Create bool
+	Read   bool
+	Update bool
+	Delete bool
 }
 
 func (tm *Table) GetColumnByMessageName(message string) (*field, bool) {
@@ -68,7 +73,7 @@ func NewTableMessages(messages []*generator.Descriptor) *TableMessages {
 func (tm *TableMessages) loadTables(messages []*generator.Descriptor) error {
 	for _, m := range messages {
 		tbl := NewTable(m)
-		if len(tbl.Name) > 0 {
+		if tbl != nil {
 			tm.messageTables[m.GetName()] = tbl
 		}
 	}
@@ -111,16 +116,31 @@ func (tm *TableMessages) GetTableByTableName(tableName string) (*Table, bool) {
 }
 
 func NewTable(msg *generator.Descriptor) *Table {
-	tbl := &Table{
-		desc: msg,
-		Cols: make(map[string]*field),
-	}
-	tableName, err := proto.GetExtension(msg.Options, E_Dbtable)
+	tableName, err := proto.GetExtension(msg.Options, sqlgen.E_Table)
 	if err == nil || tableName != nil {
-		tbl.Name = *(tableName.(*string))
+		pt := *(tableName.(*sqlgen.Table))
+		tbl := &Table{
+			desc: msg,
+			Cols: make(map[string]*field),
+			Name: pt.GetName(),
+		}
+		for _, o := range pt.GetCrud() {
+			switch o {
+			case sqlgen.OPERATION_C:
+				tbl.Create = true
+			case sqlgen.OPERATION_R:
+				tbl.Read = true
+			case sqlgen.OPERATION_U:
+				tbl.Update = true
+			case sqlgen.OPERATION_D:
+				tbl.Delete = true
+			}
+		}
+		return tbl
 	}
+
 	// tbl.loadFields()
-	return tbl
+	return nil
 }
 
 // func (m *Table) loadFields() {
@@ -142,7 +162,7 @@ func NewTable(msg *generator.Descriptor) *Table {
 func (m Table) GetPKs() []*field {
 	fields := []*field{}
 	for _, f := range m.Cols {
-		if f.PK != PK_NONE {
+		if f.PK != sqlgen.PK_NONE {
 			fields = append(fields, f)
 		}
 	}

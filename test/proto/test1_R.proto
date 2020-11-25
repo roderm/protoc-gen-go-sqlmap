@@ -1,0 +1,12 @@
+syntax="proto3";
+
+package test1_R;
+
+import "sqlgen/sqlgen.proto";
+
+message Employee {
+    option (sqlgen.table) = {name:"tbl_employee",crud:[R]};
+    string Id = 1 [(sqlgen.dbpk) = AUTO, (sqlgen.dbcol) = "employee_id"];
+    string Firstname = 2 [(sqlgen.dbcol) = "employee_firstname"];
+    string Lastname = 3 [(sqlgen.dbcol) = "employee_lastname"];
+}

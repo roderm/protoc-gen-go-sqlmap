@@ -1,8 +1,9 @@
-package sqlgen
+package generator
 
 import "text/template"
 
 var deleteTpl = `
+{{ if .Delete }}
 func (m *{{ MessageName .  }}) Delete(s *{{ Store }}, ctx context.Context) (error) {
 
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
@@ -27,6 +28,7 @@ func (m *{{ MessageName .  }}) Delete(s *{{ Store }}, ctx context.Context) (erro
 	}
 	return nil
 }
+{{end}}
 `
 
 func LoadDeleteTemplate(p Printer) *template.Template {

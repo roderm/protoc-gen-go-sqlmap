@@ -1,4 +1,4 @@
-package sqlgen
+package generator
 
 import (
 	// pb "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
@@ -73,9 +73,6 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	var _ = sql.Open
 	var _ = driver.IsValue
 	`)
-
-	p.P(`//` + p.file.GetPackage())
-	p.P(`//` + p.StoreName())
 
 	p.P(`
 		type ` + p.StoreName() + ` struct {

@@ -1,4 +1,4 @@
-package sqlgen
+package generator
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
+	"github.com/roderm/protoc-gen-go-sqlmap/sqlgen"
 )
 
 type fkRelation = int8
@@ -29,7 +30,7 @@ type field struct {
 	desc      *descriptor.FieldDescriptorProto
 	Table     *Table
 	ColName   string
-	PK        PK
+	PK        sqlgen.PK
 	needQuery bool
 	dbfk      string
 	DbfkField string
@@ -60,22 +61,22 @@ func NewField(table *Table, desc *descriptor.FieldDescriptorProto) *field {
 	return f
 }
 func (f *field) setColName() {
-	v, err := proto.GetExtension(f.desc.Options, E_Dbcol)
+	v, err := proto.GetExtension(f.desc.Options, sqlgen.E_Dbcol)
 	if err == nil && v != nil {
 		f.ColName = *(v.(*string))
 	}
 }
 func (f *field) setPK() {
-	v, err := proto.GetExtension(f.desc.Options, E_Dbpk)
+	v, err := proto.GetExtension(f.desc.Options, sqlgen.E_Dbpk)
 	if err == nil && v != nil {
-		f.PK = *(v.(*PK))
+		f.PK = *(v.(*sqlgen.PK))
 	} else {
-		f.PK = PK_NONE
+		f.PK = sqlgen.PK_NONE
 	}
 }
 
 func (f *field) setFK(tm *TableMessages) {
-	v, err := proto.GetExtension(f.desc.Options, E_Dbfk)
+	v, err := proto.GetExtension(f.desc.Options, sqlgen.E_Dbfk)
 	if err == nil && v != nil {
 		f.dbfk = *(v.(*string))
 		fkArr := strings.Split(f.dbfk, ".")
