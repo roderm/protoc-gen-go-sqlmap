@@ -16,16 +16,11 @@ proto:
 		--gogo_out=Mgogo/protobuf/google/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor:. \
 		sqlgen/sqlgen.proto
 
+regenerate:
+	find ./test -type f -name *.proto -exec \
+		protoc --go-sqlmap_out=Msqlgen/sqlgen.proto=github.com/roderm/protoc-gen-go-sqlmap/sqlgen:. \
+		--proto_path=..:. \
+		{} \;
+
 install: proto
 	go install
-
-regenerate:
-	protoc \
-		--go-sqlmap_out=Msqlgen/sqlgen.proto=github.com/roderm/protoc-gen-go-sqlmap/sqlgen:. \
-		test/test1.proto
-.PHONY: test
-test:
-	protoc \
-		--proto_path=${GOPATH}/src/:${GOPATH}/src/github.com/gogo/protobuf/:${GOPATH}/src/github.com/gogo/protobuf/protobuf:. \
-		--go-sqlmap_out=. \
-		test/test1.proto
