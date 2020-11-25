@@ -1,10 +1,23 @@
-package sqlgen
+package generator
 
 import (
 	"text/template"
 )
 
 var configStructTpl = `
+func (m *{{ MessageName . }}) Scan(value interface{}) error {
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Failed % ", value)
+	}
+	m.{{ GetPKName . }} = {{ GetPKType . }}(buff)
+	return nil
+}
+
+func (m *{{ MessageName . }}) Value() (driver.Value, error) {
+	return m.{{ GetPKName . }}, nil
+}
+
 type query{{ MessageName . }}Config struct {
 	Store *{{ Store }}
 	filter pg.Where 
@@ -15,17 +28,8 @@ type query{{ MessageName . }}Config struct {
 	load{{ getFieldName $f }} bool
 	opts{{ getFieldName $f }} []{{ MessageName $f.FK.Remote.Table }}Option{{end}}
 }
-// TODO: get correct field and type
-// Scan for SQL, only works for now on PK "id" and type string
-func (m *{{ MessageName . }}) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed % ", value)
-	}
-	m.{{ GetPKName . }} = {{ GetPKType . }}(buff)
-	return nil
-}
 
+{{ if .Read }}
 type {{ MessageName . }}Option func(*query{{ MessageName . }}Config)
 func {{ MessageName . }}Filter(filter pg.Where) {{ MessageName . }}Option {
 	return func(config *query{{ MessageName . }}Config) {
@@ -49,22 +53,30 @@ func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.R
 		config.load{{ getFieldName $f }} = true
 		config.opts{{ getFieldName $f }} = opts
 		config.cb = append(config.cb, func(row *{{ MessageName $ }}) {
-			 ids = append(ids, row.Id)
+			 ids = append(ids, row.{{ GetPKName $ }})
 		})
 		config.opts{{ getFieldName $f }} = append(config.opts{{ getFieldName $f }}, 
 			{{ MessageName $f.FK.Remote.Table }}OnRow(func(row *{{ MessageName $f.FK.Remote.Table }}) {
 				{{ if IsReverseFK $f }}
-				row.{{ getFieldName $f }} = config.rows[row.{{ getFieldName $f }}]
+				if config.rows[row.{{ getFieldName $f }}] != nil {
+					row.{{ getFieldName $f }} = config.rows[row.{{ getFieldName $f }}]
+				}
 				{{end}}
 
 				{{if IsRepeated $f }}
-				config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }}, row)
+				if config.rows[row.{{ getFullFieldName $f.FK.Remote }}] != nil {
+					config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }}, row)
+				}
+				{{else}}
+				if config.rows[row.{{ GetPKName $f.FK.Remote.Table }}] != nil {
+					config.rows[row.{{ GetPKName $f.FK.Remote.Table }}].{{ getFieldName $f }} = row
+				}
 				{{end}}
 			}),
 			{{ MessageName $f.FK.Remote.Table }}Filter(pg.IN("{{ $f.DbfkField }}", ids))) 
 	}
 }{{ end }}
-	
+{{end}}
 `
 
 func LoadConfigStructTemplate(p Printer) *template.Template {

@@ -31,7 +31,7 @@ func NONE() Where {
 func EQ(column string, value interface{}) Where {
 	return func(paramBase *int) (string, []interface{}) {
 		*paramBase++
-		return fmt.Sprintf("%s = $%d", column, paramBase), []interface{}{value}
+		return fmt.Sprintf("\"%s\" = $%d", column, paramBase), []interface{}{value}
 	}
 }
 
@@ -39,7 +39,7 @@ func EQ(column string, value interface{}) Where {
 func NEQ(column string, value interface{}) Where {
 	return func(paramBase *int) (string, []interface{}) {
 		*paramBase++
-		return fmt.Sprintf("%s != $%d", column, paramBase), []interface{}{value}
+		return fmt.Sprintf("\"%s\" != $%d", column, paramBase), []interface{}{value}
 	}
 }
 
@@ -65,7 +65,7 @@ func flatten(in interface{}) []interface{} {
 func IN(column string, values ...interface{}) Where {
 	return func(paramBase *int) (string, []interface{}) {
 		v := flatten(values)
-		return fmt.Sprintf("%s IN ( %s )", column, joinN(len(v), paramBase, ",")), v
+		return fmt.Sprintf("\"%s\" IN ( %s )", column, joinN(len(v), paramBase, ",")), v
 	}
 }
 

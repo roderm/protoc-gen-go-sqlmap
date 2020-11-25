@@ -1,10 +1,11 @@
-package sqlgen
+package generator
 
 import (
 	"text/template"
 )
 
 var selectTpl = `
+{{ if .Read }}
 func (s *{{ Store }}) {{ MessageName .  }}(ctx context.Context, opts ...{{ MessageName .  }}Option) (map[string]*{{ MessageName .  }}, error) {
 	config := &query{{ MessageName .  }}Config{
 		Store: s,
@@ -16,7 +17,7 @@ func (s *{{ Store }}) {{ MessageName .  }}(ctx context.Context, opts ...{{ Messa
 	}
 
 	err := s.select{{ MessageName .  }}(ctx, config.filter, func(row *{{ MessageName .  }}) {
-		config.rows[row.Id] = row
+		config.rows[row.{{ GetPKName . }}] = row
 		for _, cb := range config.cb {
 			cb(row)
 		}
@@ -43,8 +44,8 @@ func (s *{{ Store }}) {{ MessageName .  }}(ctx context.Context, opts ...{{ Messa
 func (s *{{ Store }}) select{{ MessageName . }}(ctx context.Context, filter pg.Where, withRow func(*{{ MessageName .  }})) error {
 	where, vals := pg.GetWhereClause(filter)
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
-	SELECT {{ getColumnNames .  ", " }} 
-	FROM {{ TableName . }}
+	SELECT "{{ getColumnNames .  "\", \"" }}" 
+	FROM "{{ TableName . }}"
 	` + "`" + `+where)
 	if err != nil {
 		return err
@@ -64,6 +65,7 @@ func (s *{{ Store }}) select{{ MessageName . }}(ctx context.Context, filter pg.W
 	}
 	return nil
 }
+{{ end }}
 `
 
 func LoadSelectTemplate(p Printer) *template.Template {

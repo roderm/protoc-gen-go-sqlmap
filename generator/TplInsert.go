@@ -1,16 +1,17 @@
-package sqlgen
+package generator
 
 import "text/template"
 
 var insertTpl = `
+{{ if .Create }}
 func (m *{{ MessageName .  }}) Insert(s *{{ Store }}, ctx context.Context) (error) {
 	ins := pg.NewInsert()
 	ins.Add(m.{{ GetInsertFieldNames .  ", m." }})
 
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
-		INSERT INTO {{ TableName . }} ( {{ GetInsertColNames .  ", " }} )
+		INSERT INTO "{{ TableName . }}" ( "{{ GetInsertColNames .  "\", \"" }}" )
 		VALUES ` + "`" + ` + ins.String() + ` + "`" + `
-		RETURNING {{ getColumnNames . ", " }}
+		RETURNING "{{ getColumnNames . "\", \"" }}"
 		` + "`" + `)
 	
 	if err != nil {
@@ -23,13 +24,14 @@ func (m *{{ MessageName .  }}) Insert(s *{{ Store }}, ctx context.Context) (erro
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		err := cursor.Scan( m.{{ getFieldNames . ", m." }} )
+		err := cursor.Scan( &m.{{ getFieldNames . ", &m." }} )
 		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
+{{end}}
 `
 
 func LoadInsertTemplate(p Printer) *template.Template {
