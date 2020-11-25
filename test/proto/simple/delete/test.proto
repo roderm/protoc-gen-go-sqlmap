@@ -1,11 +1,11 @@
 syntax="proto3";
 
-package test1_C;
+package delete;
 
 import "sqlgen/sqlgen.proto";
 
 message Employee {
-    option (sqlgen.table) = {name:"tbl_employee",crud:[C]};
+    option (sqlgen.table) = {name:"tbl_employee",crud:[D]};
     string Id = 1 [(sqlgen.dbpk) = AUTO, (sqlgen.dbcol) = "employee_id"];
     string Firstname = 2 [(sqlgen.dbcol) = "employee_firstname"];
     string Lastname = 3 [(sqlgen.dbcol) = "employee_lastname"];

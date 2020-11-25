@@ -1,6 +1,6 @@
 syntax="proto3";
 
-package test1_R;
+package read;
 
 import "sqlgen/sqlgen.proto";
 
