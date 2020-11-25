@@ -40,7 +40,7 @@ or for the sub-query:
 - [x] Implement insert
 - [x] Implement delete
 - [ ] Implement update
-- [ ] Write generator test 
+- [-] Write generator test 
 - [ ] Support multiple PKs
 - [ ] Add multiple FKs for single Message
 - [ ] Support `oneOf` type in proto3
