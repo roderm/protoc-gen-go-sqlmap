@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -53,7 +54,10 @@ func TestGolden(t *testing.T) {
 
 	// Compile each package, using this binary as protoc-gen-gogo.
 	for _, sources := range packages {
-		args := []string{"--proto_path=.:test/proto", "--go-sqlmap_out=Msqlgen/sqlgen.proto=github.com/roderm/protoc-gen-go-sqlmap/sqlgen:" + workdir}
+		args := []string{
+			"--proto_path=.:test/proto",
+			fmt.Sprintf("-I=%s/src/", os.Getenv("GOPATH")),
+			"--go-sqlmap_out=Msqlgen/sqlgen.proto=github.com/roderm/protoc-gen-go-sqlmap/sqlgen:" + workdir}
 		args = append(args, sources...)
 		protoc(t, args)
 	}

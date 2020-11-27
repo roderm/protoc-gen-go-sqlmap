@@ -1,3 +1,0 @@
-[submodule "gogo"]
-	path = gogo
-	url = https://github.com/gogo/protobuf

@@ -3,7 +3,7 @@ syntax = "proto2";
 // import "github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.proto";
 package sqlgen;
 
-import "gogo/protobuf/google/protobuf/descriptor.proto";
+import "github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.proto";
 
 // option go_package = "github.com/roderm/protoc-gen-go-sqlmap/sqlgen";
 
@@ -31,6 +31,7 @@ extend google.protobuf.FileOptions {
 
 extend google.protobuf.MessageOptions {
     optional Table table = 800100;
+    optional bool JsonScan = 800101;
     // optional CRUD crud = 800101;
 }
 
