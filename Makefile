@@ -9,9 +9,9 @@ proto:
 	protoc \
 		-I=${GOPATH}/src \
 		-I=. \
-		--gogo_out=Mgithub.com/gogo/protobuf/protobuf/google/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor:. \
+		--gogo_out=Mgithub.com/gogo/protobuf/protobuf/google/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor:${GOPATH}/src/ \
 		sqlgen/sqlgen.proto
-	protoc -I=. --gogo_out=. lib/proto/timestamptz/timestamptz.proto
+	protoc -I=. --gogo_out=${GOPATH}/src/ lib/proto/timestamptz/timestamptz.proto
 
 regenerate:
 	find ./test -type f -name *.proto -exec \
