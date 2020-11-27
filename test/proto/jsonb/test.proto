@@ -14,7 +14,7 @@ message Product {
     option (sqlgen.table) = {name:"tbl_product",crud:[R]};
     string ProductID = 1 [(sqlgen.dbpk) = AUTO, (sqlgen.dbcol) = "product_id"];
     string ProductName = 2 [(sqlgen.dbcol) = "product_name"];
-
+    ProductConfig Config = 3 [(sqlgen.dbcol) = "product_config"];
 }
 
 message ProductConfig {

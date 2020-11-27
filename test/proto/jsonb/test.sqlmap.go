@@ -104,7 +104,7 @@ func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (map[str
 func (s *TestStore) selectProduct(ctx context.Context, filter pg.Where, withRow func(*Product)) error {
 	where, vals := pg.GetWhereClause(filter)
 	stmt, err := s.conn.PrepareContext(ctx, `
-	SELECT "product_id", "product_name" 
+	SELECT "product_id", "product_name", "product_config" 
 	FROM "tbl_product"
 	`+where)
 	if err != nil {
@@ -117,7 +117,7 @@ func (s *TestStore) selectProduct(ctx context.Context, filter pg.Where, withRow 
 	defer cursor.Close()
 	for cursor.Next() {
 		row := new(Product)
-		err := cursor.Scan(&row.ProductID, &row.ProductName)
+		err := cursor.Scan(&row.ProductID, &row.ProductName, &row.Config)
 		if err != nil {
 			return err
 		}
