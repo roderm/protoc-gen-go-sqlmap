@@ -5,6 +5,19 @@ import (
 )
 
 var configStructTpl = `
+{{if .JSONB }}
+func (m *{{ MessageName . }}) Scan(value interface{}) error {
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Failed % ", value)
+	}
+	return json.Unmarshal(buff, m)
+}
+
+func (m *{{ MessageName . }}) Value() (driver.Value, error) {
+	return json.Marshal(m)
+}
+{{else}}
 func (m *{{ MessageName . }}) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
@@ -17,7 +30,10 @@ func (m *{{ MessageName . }}) Scan(value interface{}) error {
 func (m *{{ MessageName . }}) Value() (driver.Value, error) {
 	return m.{{ GetPKName . }}, nil
 }
+{{end}}
 
+
+{{ if .Read }}
 type query{{ MessageName . }}Config struct {
 	Store *{{ Store }}
 	filter pg.Where 
@@ -29,7 +45,6 @@ type query{{ MessageName . }}Config struct {
 	opts{{ getFieldName $f }} []{{ MessageName $f.FK.Remote.Table }}Option{{end}}
 }
 
-{{ if .Read }}
 type {{ MessageName . }}Option func(*query{{ MessageName . }}Config)
 func {{ MessageName . }}Filter(filter pg.Where) {{ MessageName . }}Option {
 	return func(config *query{{ MessageName . }}Config) {

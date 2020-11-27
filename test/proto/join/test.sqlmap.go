@@ -7,6 +7,7 @@ import (
 	context "context"
 	sql "database/sql"
 	driver "database/sql/driver"
+	json "encoding/json"
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
 	pg "github.com/roderm/protoc-gen-go-sqlmap/lib/pg"
@@ -23,6 +24,7 @@ var _ = context.TODO
 var _ = pg.NONE
 var _ = sql.Open
 var _ = driver.IsValue
+var _ = json.Valid
 
 type TestStore struct {
 	conn *sql.DB

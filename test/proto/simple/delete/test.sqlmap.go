@@ -7,6 +7,7 @@ import (
 	context "context"
 	sql "database/sql"
 	driver "database/sql/driver"
+	json "encoding/json"
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
 	pg "github.com/roderm/protoc-gen-go-sqlmap/lib/pg"
@@ -23,6 +24,7 @@ var _ = context.TODO
 var _ = pg.NONE
 var _ = sql.Open
 var _ = driver.IsValue
+var _ = json.Valid
 
 type TestStore struct {
 	conn *sql.DB
@@ -43,14 +45,6 @@ func (m *Employee) Scan(value interface{}) error {
 
 func (m *Employee) Value() (driver.Value, error) {
 	return m.Id, nil
-}
-
-type queryEmployeeConfig struct {
-	Store        *TestStore
-	filter       pg.Where
-	beforeReturn []func(map[string]*Employee) error
-	cb           []func(*Employee)
-	rows         map[string]*Employee
 }
 
 func (m *Employee) Delete(s *TestStore, ctx context.Context) error {

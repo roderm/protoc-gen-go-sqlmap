@@ -66,12 +66,14 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	p.AddImport(generator.GoImportPath("database/sql"))
 	p.AddImport(generator.GoImportPath("database/sql/driver"))
 	p.AddImport(generator.GoImportPath("context"))
+	p.AddImport(generator.GoImportPath("encoding/json"))
 
 	fmt.Fprint(p, `
 	var _ = context.TODO
 	var _ = pg.NONE
 	var _ = sql.Open
 	var _ = driver.IsValue
+	var _ = json.Valid
 	`)
 
 	p.P(`

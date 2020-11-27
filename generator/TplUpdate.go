@@ -1,6 +1,8 @@
 package generator
 
-import "text/template"
+import (
+	"text/template"
+)
 
 var updateTpl = `
 {{ if .Update }}

@@ -1,0 +1,25 @@
+syntax="proto3";
+
+package join;
+
+import "sqlgen/sqlgen.proto";
+
+enum LOG_LEVEL {
+    ERROR = 0;
+    WARNING = 1;
+    INFO = 2;
+    DEBUG = 3;
+}
+message Product {
+    option (sqlgen.table) = {name:"tbl_product",crud:[R]};
+    string ProductID = 1 [(sqlgen.dbpk) = AUTO, (sqlgen.dbcol) = "product_id"];
+    string ProductName = 2 [(sqlgen.dbcol) = "product_name"];
+
+}
+
+message ProductConfig {
+    option (sqlgen.jsonb) = true;
+    string ProductVersion = 1;
+    string Domain = 2;
+    LOG_LEVEL LogLevel = 3;
+}

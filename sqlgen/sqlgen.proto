@@ -31,7 +31,7 @@ extend google.protobuf.FileOptions {
 
 extend google.protobuf.MessageOptions {
     optional Table table = 800100;
-    optional bool JsonScan = 800101;
+    optional bool jsonb = 800101;
     // optional CRUD crud = 800101;
 }
 

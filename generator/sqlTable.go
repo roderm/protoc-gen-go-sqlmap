@@ -25,6 +25,7 @@ type Table struct {
 	Name   string
 	desc   *generator.Descriptor
 	Cols   map[string]*field
+	JSONB  bool
 	Create bool
 	Read   bool
 	Update bool
@@ -82,6 +83,9 @@ func (tm *TableMessages) loadTables(messages []*generator.Descriptor) error {
 
 func (tm *TableMessages) loadTableFields() {
 	for _, t := range tm.messageTables {
+		if t.JSONB {
+			continue
+		}
 		t.Cols = make(map[string]*field)
 		for _, f := range t.desc.Field {
 			t.Cols[f.GetName()] = NewField(t, f)
@@ -91,6 +95,9 @@ func (tm *TableMessages) loadTableFields() {
 
 func (tm *TableMessages) loadTableFieldFKs() {
 	for _, t := range tm.messageTables {
+		if t.JSONB {
+			continue
+		}
 		for _, c := range t.Cols {
 			c.setFK(tm)
 		}
@@ -120,9 +127,10 @@ func NewTable(msg *generator.Descriptor) *Table {
 	if err == nil || tableName != nil {
 		pt := *(tableName.(*sqlgen.Table))
 		tbl := &Table{
-			desc: msg,
-			Cols: make(map[string]*field),
-			Name: pt.GetName(),
+			desc:  msg,
+			Cols:  make(map[string]*field),
+			Name:  pt.GetName(),
+			JSONB: false,
 		}
 		for _, o := range pt.GetCrud() {
 			switch o {
@@ -138,7 +146,13 @@ func NewTable(msg *generator.Descriptor) *Table {
 		}
 		return tbl
 	}
-
+	JSONB, err := proto.GetExtension(msg.Options, sqlgen.E_Jsonb)
+	if err == nil || JSONB != nil {
+		return &Table{
+			desc:  msg,
+			JSONB: *(JSONB.(*bool)),
+		}
+	}
 	// tbl.loadFields()
 	return nil
 }
