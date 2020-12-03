@@ -1,11 +1,10 @@
 syntax = "proto2";
 
-// import "github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.proto";
 package sqlgen;
 
-import "github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.proto";
+import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/roderm/protoc-gen-go-sqlmap/sqlgen";
+option go_package = "sqlgen";
 
 enum PK {
     NONE = 0;

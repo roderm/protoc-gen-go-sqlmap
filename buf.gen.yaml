@@ -1,0 +1,5 @@
+version: v1beta1
+plugins:
+  - name: gogo
+    out: sqlgen
+    opt: paths=source_relative,Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor
