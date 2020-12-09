@@ -12,8 +12,9 @@ type Where func(paramBase *int) (string, []interface{})
 
 // GetWhereClause builds the WHERE clause from any of Where-types
 func GetWhereClause(w Where) (string, []interface{}) {
-	i := 0
-	str, vals := w(&i)
+	var i *int = new(int)
+	*i = 0
+	str, vals := w(i)
 	if len(str) > 0 {
 		return "WHERE " + str, vals
 	}
@@ -31,7 +32,7 @@ func NONE() Where {
 func EQ(column string, value interface{}) Where {
 	return func(paramBase *int) (string, []interface{}) {
 		*paramBase++
-		return fmt.Sprintf("\"%s\" = $%d", column, paramBase), []interface{}{value}
+		return fmt.Sprintf("\"%s\" = $%d", column, *paramBase), []interface{}{value}
 	}
 }
 
@@ -39,7 +40,7 @@ func EQ(column string, value interface{}) Where {
 func NEQ(column string, value interface{}) Where {
 	return func(paramBase *int) (string, []interface{}) {
 		*paramBase++
-		return fmt.Sprintf("\"%s\" != $%d", column, paramBase), []interface{}{value}
+		return fmt.Sprintf("\"%s\" != $%d", column, *paramBase), []interface{}{value}
 	}
 }
 
