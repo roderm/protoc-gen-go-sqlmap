@@ -65,8 +65,8 @@ func flatten(in interface{}) []interface{} {
 // IN compares values in an SQL-Statement with "IN (?,?,?,...)"-operator
 func IN(column string, values ...interface{}) Where {
 	return func(paramBase *int) (string, []interface{}) {
-		v := flatten(values)
-		return fmt.Sprintf("\"%s\" IN ( %s )", column, joinN(len(v), paramBase, ",")), v
+		// v := flatten(values)
+		return fmt.Sprintf("\"%s\" IN ( %s )", column, joinN(len(values), paramBase, ",")), values
 	}
 }
 
