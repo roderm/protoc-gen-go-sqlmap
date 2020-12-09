@@ -51,7 +51,7 @@ func {{ MessageName . }}Filter(filter pg.Where) {{ MessageName . }}Option {
 		if config.filter == nil {
 			config.filter = filter
 		} else {
-			pg.AND(config.filter, filter)
+			config.filter = pg.AND(config.filter, filter)
 		}
 	}
 }
