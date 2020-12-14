@@ -111,8 +111,29 @@ var TplFuncs = template.FuncMap{
 	"IsRepeated":          IsRepeated,
 	"GetInsertFieldNames": GetInsertFieldNames,
 	"GetInsertColNames":   GetInsertColNames,
+	"getInsertFields":     getInsertFields,
 }
 
+func getInsertFields(t *Table) []*field {
+	cols := []*field{}
+	inCols := func(new *field) bool {
+		for _, c := range cols {
+			if new == c {
+				return true
+			}
+		}
+		return false
+	}
+	for _, f := range t.GetOrderedCols() {
+		if !inCols(f) && (f.PK == sqlgen.PK_MAN || (f.PK != sqlgen.PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0)) {
+			cols = append(cols, f)
+		}
+	}
+	return cols
+}
+func getUpdateString(t *Table) string {
+	return ""
+}
 func getFullFieldName(f *field) string {
 	table, ok := GetTM().GetTableByTableName(f.Table.Name)
 	if ok {

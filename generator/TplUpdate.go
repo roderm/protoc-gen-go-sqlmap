@@ -6,18 +6,26 @@ import (
 
 var updateTpl = `
 {{ if .Update }}
-func (m *{{ MessageName .  }}) Update(s *{{ Store }}, ctx context.Context) (error) {
-
+func (m *{{ MessageName .  }}) Update(s *{{ Store }}, ctx context.Context, conf *pg.UpdateSQL) (error) {
+	base := 0
+	whereClause := pg.EQ("{{ GetPKCol . }}", m.{{ GetPKName . }})
+	if conf == nil {
+		conf = &pg.UpdateSQL{
+			ValueMap: make(map[string]interface{}),
+		}{{ range $i, $f := getInsertFields .}}
+		conf.ValueMap["{{getColumnName $f}}"] = m.{{getFieldName $f}}{{end}}
+	}
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
 	UPDATE {{ TableName . }} 
-	WHERE {{ GetPKCol . }} = $1
+	SET ` + "`" + ` + conf.String(&base) + ` + "`" + `
+	WHERE ` + "`" + ` + whereClause.String(&base) + ` + "`" + `
 	RETURNING {{ getColumnNames . ", " }}
 		` + "`" + `)
 	if err != nil {
 		return err
 	}
 
-	cursor, err := stmt.QueryContext(ctx, m.{{ GetPKName . }})
+	cursor, err := stmt.QueryContext(ctx, append(conf.Values(), whereClause.Values()...))
 	if err != nil {
 		return err
 	}

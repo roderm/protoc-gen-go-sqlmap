@@ -88,6 +88,7 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	for _, tbl := range GetTM().messageTables {
 		tbl.ConfigStructs(p)
 		tbl.Querier(p)
+		tbl.Updater(p)
 		tbl.Inserter(p)
 		tbl.Deleter(p)
 	}

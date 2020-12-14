@@ -10,7 +10,7 @@ func (m *{{ MessageName .  }}) Insert(s *{{ Store }}, ctx context.Context) (erro
 
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
 		INSERT INTO "{{ TableName . }}" ( "{{ GetInsertColNames .  "\", \"" }}" )
-		VALUES ` + "`" + ` + ins.String() + ` + "`" + `
+		VALUES ` + "`" + ` + ins.String(nil) + ` + "`" + `
 		RETURNING "{{ getColumnNames . "\", \"" }}"
 		` + "`" + `)
 	
