@@ -32,11 +32,15 @@ func (v *InsertVals) Values() []interface{} {
 }
 
 // String returns the VALUES-Clause with the size of given value-rows
-func (v *InsertVals) String() string {
-	base := 0
+func (v *InsertVals) String(base *int) string {
+	// base := 0
+	if base == nil {
+		newBase := 0
+		base = &newBase
+	}
 	mRows := []string{}
 	for _, r := range v.values {
-		mRows = append(mRows, fmt.Sprintf("(%s)", joinN(len(r), &base, ", ")))
+		mRows = append(mRows, fmt.Sprintf("(%s)", joinN(len(r), base, ", ")))
 	}
 	return strings.Join(mRows, ", ")
 }
