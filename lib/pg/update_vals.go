@@ -16,7 +16,7 @@ func (c *UpdateSQL) String(base *int) string {
 	}
 	return strings.Join(mRows, ", ")
 }
-func (c *UpdateSQL) Values(base *int) []interface{} {
+func (c *UpdateSQL) Values() []interface{} {
 	res := []interface{}{}
 	for _, val := range c.ValueMap {
 		res = append(res, val)
