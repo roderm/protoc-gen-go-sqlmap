@@ -12,7 +12,7 @@ type UpdateSQL struct {
 func (c *UpdateSQL) String(base *int) string {
 	mRows := []string{}
 	for col := range c.ValueMap {
-		mRows = append(mRows, fmt.Sprintf("%s = $%d", col, base))
+		mRows = append(mRows, fmt.Sprintf("%s = $%d", col, *base))
 	}
 	return strings.Join(mRows, ", ")
 }
