@@ -11,10 +11,11 @@ import (
 type Where func(paramBase *int) (string, []interface{})
 
 // GetWhereClause builds the WHERE clause from any of Where-types
-func GetWhereClause(w Where) (string, []interface{}) {
-	var i *int = new(int)
-	*i = 0
-	str, vals := w(i)
+func GetWhereClause(w Where, base *int) (string, []interface{}) {
+	if base == nil {
+		base = new(int)
+	}
+	str, vals := w(base)
 	if len(str) > 0 {
 		return "WHERE " + str, vals
 	}

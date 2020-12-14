@@ -35,8 +35,7 @@ func (v *InsertVals) Values() []interface{} {
 func (v *InsertVals) String(base *int) string {
 	// base := 0
 	if base == nil {
-		newBase := 0
-		base = &newBase
+		base = new(int)
 	}
 	mRows := []string{}
 	for _, r := range v.values {
