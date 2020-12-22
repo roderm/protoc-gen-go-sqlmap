@@ -71,6 +71,14 @@ func IN(column string, values ...interface{}) Where {
 	}
 }
 
+// INCallabel same as IN but calles function for the values
+func INCallabel(column string, callable func() []interface{}) Where {
+	return func(paramBase *int) (string, []interface{}) {
+		values := callable()
+		return fmt.Sprintf("\"%s\" IN ( %s )", column, joinN(len(values), paramBase, ",")), values
+	}
+}
+
 // AND joins two or more Where-types with (cond1 AND cond2)
 func AND(ops ...Where) Where {
 	return func(paramBase *int) (string, []interface{}) {
