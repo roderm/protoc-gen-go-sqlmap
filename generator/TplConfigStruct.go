@@ -64,11 +64,15 @@ func {{ MessageName . }}OnRow(cb func(*{{ MessageName . }})) {{ MessageName . }}
 {{range $i, $f := SubQueries . }}
 func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.Remote.Table }}Option) {{ MessageName $ }}Option {
 	return func(config *query{{ MessageName $ }}Config) {
-		ids := []interface{}{}
+		map{{ getFieldName $f }} := make(map[string]*{{ MessageName $ }})
 		config.load{{ getFieldName $f }} = true
 		config.opts{{ getFieldName $f }} = opts
 		config.cb = append(config.cb, func(row *{{ MessageName $ }}) {
-			 ids = append(ids, row.{{ GetPKName $ }})
+			{{if IsRepeated $f }}// repeated val 
+				map{{ getFieldName $f }}[row.{{ GetPKName $ }}] = row
+			{{else}}// message val 
+				map{{ getFieldName $f }}[row.{{ getFullFieldName $f }}] = row
+			{{end}}
 		})
 		config.opts{{ getFieldName $f }} = append(config.opts{{ getFieldName $f }}, 
 			{{ MessageName $f.FK.Remote.Table }}OnRow(func(row *{{ MessageName $f.FK.Remote.Table }}) {
@@ -78,17 +82,25 @@ func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.R
 				}
 				{{end}}
 
-				{{if IsRepeated $f }}
+				{{if IsRepeated $f }}// repeated val 
 				if config.rows[row.{{ getFullFieldName $f.FK.Remote }}] != nil {
 					config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }}, row)
 				}
-				{{else}}
-				if config.rows[row.{{ GetPKName $f.FK.Remote.Table }}] != nil {
-					config.rows[row.{{ GetPKName $f.FK.Remote.Table }}].{{ getFieldName $f }} = row
+				{{else}}// message val 
+				item := map{{ getFieldName $f }}[row.{{ GetPKName $f.FK.Remote.Table }}]
+				if config.rows[item.{{ GetPKName $ }}] != nil {
+					config.rows[item.{{ GetPKName $ }}].{{ getFieldName $f }} = row
 				}
 				{{end}}
 			}),
-			{{ MessageName $f.FK.Remote.Table }}Filter(pg.IN("{{ $f.DbfkField }}", ids...))) 
+			{{ MessageName $f.FK.Remote.Table }}Filter(pg.INCallabel("{{ $f.DbfkField }}", func() []interface{} {
+				ids := []interface{}{}
+				for id := range map{{ getFieldName $f }} {
+					ids = append(ids, id)
+				}
+				return ids
+			})),
+		) 
 	}
 }{{ end }}
 {{end}}

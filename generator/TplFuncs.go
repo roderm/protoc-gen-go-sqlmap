@@ -125,7 +125,7 @@ func getInsertFields(t *Table) []*field {
 		return false
 	}
 	for _, f := range t.GetOrderedCols() {
-		if !inCols(f) && (f.PK == sqlgen.PK_MAN || (f.PK != sqlgen.PK_AUTO && !f.desc.IsRepeated() && len(f.ColName) > 0)) {
+		if !inCols(f) && (f.PK == sqlgen.PK_NONE) && f.FK.Remote == nil && len(f.ColName) > 0 {
 			cols = append(cols, f)
 		}
 	}
@@ -138,7 +138,7 @@ func getFullFieldName(f *field) string {
 	table, ok := GetTM().GetTableByTableName(f.Table.Name)
 	if ok {
 		for _, c := range table.Cols {
-			if f.DbfkField == c.ColName {
+			if f.DbfkField == c.ColName && c.PK != sqlgen.PK_NONE {
 				return f.desc.GetName() + "." + c.desc.GetName()
 			}
 		}

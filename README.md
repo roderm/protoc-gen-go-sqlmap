@@ -17,7 +17,7 @@ message Some {
 }
 
 message Attribute {
-    option (sqlgen.table) = {name:"tbl_some_attributes", crud:[C,R,D]}; // genereate inser,select and delete function
+    option (sqlgen.table) = {name:"tbl_some_attributes", crud:[C,R,D]}; // genereate insert,select and delete function
     string Id = 1 [(sqlgen.dbpk) = AUTO, (sqlgeb.dbcol) = "attributes_id"];
     string Name = 2 [(sqlgeb.dbcol) = "attributes_name"];
     bytes Value = 3 [(sqlgeb.dbcol) = "attributes_value"];

@@ -62,7 +62,7 @@ func ProductFilter(filter pg.Where) ProductOption {
 		if config.filter == nil {
 			config.filter = filter
 		} else {
-			pg.AND(config.filter, filter)
+			config.filter = pg.AND(config.filter, filter)
 		}
 	}
 }

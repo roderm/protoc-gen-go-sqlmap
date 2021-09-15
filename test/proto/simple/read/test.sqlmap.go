@@ -62,7 +62,7 @@ func EmployeeFilter(filter pg.Where) EmployeeOption {
 		if config.filter == nil {
 			config.filter = filter
 		} else {
-			pg.AND(config.filter, filter)
+			config.filter = pg.AND(config.filter, filter)
 		}
 	}
 }

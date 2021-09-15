@@ -42,7 +42,7 @@ func (s *{{ Store }}) {{ MessageName .  }}(ctx context.Context, opts ...{{ Messa
 	return config.rows, nil
 }
 func (s *{{ Store }}) select{{ MessageName . }}(ctx context.Context, filter pg.Where, withRow func(*{{ MessageName .  }})) error {
-	where, vals := pg.GetWhereClause(filter)
+	where, vals := pg.GetWhereClause(filter, nil)
 	stmt, err := s.conn.PrepareContext(ctx, ` + "`" + `
 	SELECT "{{ getColumnNames .  "\", \"" }}" 
 	FROM "{{ TableName . }}"

@@ -93,6 +93,9 @@ func (f *field) setFK(tm *TableMessages) {
 		if !ok {
 			panic(fmt.Sprintf("Column %s not found", f.DbfkField))
 		}
+		if f.FK.Remote != nil {
+			panic(fmt.Sprintf("Remote is already set %s", f.DbfkField))
+		}
 		f.FK = fieldFK{
 			Remote: remoteField,
 		}
