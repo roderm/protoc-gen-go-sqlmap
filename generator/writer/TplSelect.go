@@ -1,7 +1,9 @@
-package generator
+package writer
 
 import (
 	"text/template"
+
+	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
 )
 
 var selectTpl = `
@@ -75,7 +77,8 @@ func LoadSelectTemplate(p Printer) *template.Template {
 	}
 	return tpl
 }
-func (m *Table) Querier(g Printer) {
+
+func WriteQueries(g Printer, m *types.Table) {
 	err := LoadSelectTemplate(g).Execute(g, m)
 	if err != nil {
 		panic(err)

@@ -37,7 +37,7 @@ func NewTestStore(conn *sql.DB) *TestStore {
 func (m *Employee) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Failed % ", value)
+		return fmt.Errorf("Failed %+v", value)
 	}
 	m.Id = string(buff)
 	return nil
@@ -53,7 +53,7 @@ func (m *Employee) Insert(s *TestStore, ctx context.Context) error {
 
 	stmt, err := s.conn.PrepareContext(ctx, `
 		INSERT INTO "tbl_employee" ( "employee_firstname", "employee_lastname" )
-		VALUES `+ins.String()+`
+		VALUES `+ins.String(nil)+`
 		RETURNING "employee_id", "employee_firstname", "employee_lastname"
 		`)
 

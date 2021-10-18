@@ -34,10 +34,22 @@ func NewTestStore(conn *sql.DB) *TestStore {
 	return &TestStore{conn}
 }
 
+func (m *ProductConfig) Scan(value interface{}) error {
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Failed %+v", value)
+	}
+	return json.Unmarshal(buff, m)
+}
+
+func (m *ProductConfig) Value() (driver.Value, error) {
+	return json.Marshal(m)
+}
+
 func (m *Product) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Failed % ", value)
+		return fmt.Errorf("Failed %+v", value)
 	}
 	m.ProductID = string(buff)
 	return nil
@@ -102,7 +114,7 @@ func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (map[str
 	return config.rows, nil
 }
 func (s *TestStore) selectProduct(ctx context.Context, filter pg.Where, withRow func(*Product)) error {
-	where, vals := pg.GetWhereClause(filter)
+	where, vals := pg.GetWhereClause(filter, nil)
 	stmt, err := s.conn.PrepareContext(ctx, `
 	SELECT "product_id", "product_name", "product_config" 
 	FROM "tbl_product"
@@ -124,16 +136,4 @@ func (s *TestStore) selectProduct(ctx context.Context, filter pg.Where, withRow 
 		withRow(row)
 	}
 	return nil
-}
-
-func (m *ProductConfig) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed % ", value)
-	}
-	return json.Unmarshal(buff, m)
-}
-
-func (m *ProductConfig) Value() (driver.Value, error) {
-	return json.Marshal(m)
 }

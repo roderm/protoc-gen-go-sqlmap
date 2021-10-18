@@ -1,4 +1,4 @@
-package generator
+package writer
 
 import (
 	"text/template"
@@ -9,7 +9,7 @@ var configStructTpl = `
 func (m *{{ MessageName . }}) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Failed % ", value)
+		return fmt.Errorf("Failed %+v", value)
 	}
 	return json.Unmarshal(buff, m)
 }
@@ -21,7 +21,7 @@ func (m *{{ MessageName . }}) Value() (driver.Value, error) {
 func (m *{{ MessageName . }}) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Failed % ", value)
+		return fmt.Errorf("Failed %+v", value)
 	}
 	m.{{ GetPKName . }} = {{ GetPKType . }}(buff)
 	return nil
@@ -68,9 +68,9 @@ func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.R
 		config.load{{ getFieldName $f }} = true
 		config.opts{{ getFieldName $f }} = opts
 		config.cb = append(config.cb, func(row *{{ MessageName $ }}) {
-			{{if IsRepeated $f }}// repeated val 
+			{{if IsRepeated $f }}
 				map{{ getFieldName $f }}[row.{{ GetPKName $ }}] = row
-			{{else}}// message val 
+			{{else}} 
 				map{{ getFieldName $f }}[row.{{ getFullFieldName $f }}] = row
 			{{end}}
 		})
@@ -82,11 +82,11 @@ func {{ MessageName $ }}With{{ getFieldName $f }}(opts ...{{ MessageName $f.FK.R
 				}
 				{{end}}
 
-				{{if IsRepeated $f }}// repeated val 
+				{{if IsRepeated $f }}
 				if config.rows[row.{{ getFullFieldName $f.FK.Remote }}] != nil {
 					config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ getFieldName $f }}, row)
 				}
-				{{else}}// message val 
+				{{else}}
 				item := map{{ getFieldName $f }}[row.{{ GetPKName $f.FK.Remote.Table }}]
 				if config.rows[item.{{ GetPKName $ }}] != nil {
 					config.rows[item.{{ GetPKName $ }}].{{ getFieldName $f }} = row
