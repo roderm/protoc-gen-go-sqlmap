@@ -8,5 +8,5 @@ import (
 
 func main() {
 	eq := pg.AND(pg.NONE(), pg.EQ("test", "bla"))
-	fmt.Println(pg.GetWhereClause(eq))
+	fmt.Println(pg.GetWhereClause(eq, nil))
 }

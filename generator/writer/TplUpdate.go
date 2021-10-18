@@ -1,7 +1,9 @@
-package generator
+package writer
 
 import (
 	"text/template"
+
+	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
 )
 
 var updateTpl = `
@@ -48,7 +50,7 @@ func LoadUpdateTemplate(p Printer) *template.Template {
 	return tpl
 }
 
-func (m *Table) Updater(g Printer) {
+func WriteUpdates(g Printer, m *types.Table) {
 	err := LoadUpdateTemplate(g).Execute(g, m)
 	if err != nil {
 		panic(err)

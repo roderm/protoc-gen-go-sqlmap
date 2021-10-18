@@ -37,7 +37,7 @@ func NewTestStore(conn *sql.DB) *TestStore {
 func (m *Employee) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Failed % ", value)
+		return fmt.Errorf("Failed %+v", value)
 	}
 	m.Id = string(buff)
 	return nil

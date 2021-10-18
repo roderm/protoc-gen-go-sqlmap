@@ -1,4 +1,4 @@
-package generator
+package writer
 
 type Printer interface {
 	StoreName() string

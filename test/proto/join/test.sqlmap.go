@@ -37,7 +37,7 @@ func NewTestStore(conn *sql.DB) *TestStore {
 func (m *Employee) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Failed % ", value)
+		return fmt.Errorf("Failed %+v", value)
 	}
 	m.EmployeeID = string(buff)
 	return nil
@@ -78,21 +78,31 @@ func EmployeeOnRow(cb func(*Employee)) EmployeeOption {
 
 func EmployeeWithManager(opts ...EmployeeOption) EmployeeOption {
 	return func(config *queryEmployeeConfig) {
-		ids := []interface{}{}
+		mapManager := make(map[string]*Employee)
 		config.loadManager = true
 		config.optsManager = opts
 		config.cb = append(config.cb, func(row *Employee) {
-			ids = append(ids, row.EmployeeID)
+
+			mapManager[row.Manager] = row
+
 		})
 		config.optsManager = append(config.optsManager,
 			EmployeeOnRow(func(row *Employee) {
 
-				if config.rows[row.EmployeeID] != nil {
-					config.rows[row.EmployeeID].Manager = row
+				item := mapManager[row.EmployeeID]
+				if config.rows[item.EmployeeID] != nil {
+					config.rows[item.EmployeeID].Manager = row
 				}
 
 			}),
-			EmployeeFilter(pg.IN("employee_id", ids)))
+			EmployeeFilter(pg.INCallabel("employee_id", func() []interface{} {
+				ids := []interface{}{}
+				for id := range mapManager {
+					ids = append(ids, id)
+				}
+				return ids
+			})),
+		)
 	}
 }
 
@@ -132,7 +142,7 @@ func (s *TestStore) Employee(ctx context.Context, opts ...EmployeeOption) (map[s
 	return config.rows, nil
 }
 func (s *TestStore) selectEmployee(ctx context.Context, filter pg.Where, withRow func(*Employee)) error {
-	where, vals := pg.GetWhereClause(filter)
+	where, vals := pg.GetWhereClause(filter, nil)
 	stmt, err := s.conn.PrepareContext(ctx, `
 	SELECT "employee_id", "employee_firstname", "employee_lastname", "employee_manager" 
 	FROM "tbl_employee"

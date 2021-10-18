@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
+	"github.com/roderm/protoc-gen-go-sqlmap/generator/gogopars"
+	"github.com/roderm/protoc-gen-go-sqlmap/generator/writer"
 )
 
 type pk string
@@ -60,7 +62,7 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	p.PluginImports = generator.NewPluginImports(p.Generator)
 	p.file = file
 
-	NewTableMessages(p.file.Messages())
+	writer.TableMessageStore = gogopars.NewTableMessages(p.file.Messages())
 
 	p.AddImport(generator.GoImportPath("github.com/roderm/protoc-gen-go-sqlmap/lib/pg"))
 	p.AddImport(generator.GoImportPath("database/sql"))
@@ -76,6 +78,7 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 	var _ = json.Valid
 	`)
 
+	p.StoreName()
 	p.P(`
 		type ` + p.StoreName() + ` struct {
 			conn *sql.DB
@@ -85,12 +88,12 @@ func (p *SqlGenerator) Generate(file *generator.FileDescriptor) {
 			return &` + p.StoreName() + `{conn}
 		}
 	`)
-	for _, tbl := range GetTM().messageTables {
-		tbl.ConfigStructs(p)
-		tbl.Querier(p)
-		tbl.Updater(p)
-		tbl.Inserter(p)
-		tbl.Deleter(p)
+	for _, tbl := range writer.TableMessageStore.MessageTables {
+		writer.WriteConfigStructs(p, tbl)
+		writer.WriteQueries(p, tbl)
+		writer.WriteUpdates(p, tbl)
+		writer.WriteInsertes(p, tbl)
+		writer.WriteDeletes(p, tbl)
 	}
 	if !p.atleastOne {
 		return

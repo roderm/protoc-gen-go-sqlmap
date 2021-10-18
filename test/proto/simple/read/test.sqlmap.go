@@ -37,7 +37,7 @@ func NewTestStore(conn *sql.DB) *TestStore {
 func (m *Employee) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
-		return fmt.Errorf("Failed % ", value)
+		return fmt.Errorf("Failed %+v", value)
 	}
 	m.Id = string(buff)
 	return nil
@@ -102,7 +102,7 @@ func (s *TestStore) Employee(ctx context.Context, opts ...EmployeeOption) (map[s
 	return config.rows, nil
 }
 func (s *TestStore) selectEmployee(ctx context.Context, filter pg.Where, withRow func(*Employee)) error {
-	where, vals := pg.GetWhereClause(filter)
+	where, vals := pg.GetWhereClause(filter, nil)
 	stmt, err := s.conn.PrepareContext(ctx, `
 	SELECT "employee_id", "employee_firstname", "employee_lastname" 
 	FROM "tbl_employee"
