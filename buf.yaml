@@ -1,23 +1,22 @@
-version: v1beta1
+version: v1
+name: buf.build/roderm/protoc-gen-go-sqlmap
 build:
-  roots:
-    - sqlgen
-  # excludes:
-  #   - test/
-  #   - vendor/
-lint:
-  use:
-    - BASIC
-    - FILE_LOWER_SNAKE_CASE
-  except:
-    - ENUM_NO_ALLOW_ALIAS
-    - IMPORT_NO_PUBLIC
-    - PACKAGE_AFFINITY
-    - PACKAGE_DIRECTORY_MATCH
-    - PACKAGE_SAME_DIRECTORY
-  ignore_only:
-    FIELD_LOWER_SNAKE_CASE:
-      - lib/proto/timestamptz/timestamptz.proto
+  excludes:
+    - test/
+    - vendor/
+# lint:
+#   use:
+#     - BASIC
+#     - FILE_LOWER_SNAKE_CASE
+#   except:
+#     - ENUM_NO_ALLOW_ALIAS
+#     - IMPORT_NO_PUBLIC
+#     - PACKAGE_AFFINITY
+#     - PACKAGE_DIRECTORY_MATCH
+#     - PACKAGE_SAME_DIRECTORY
+#   ignore_only:
+#     FIELD_LOWER_SNAKE_CASE:
+#       - lib/proto/timestamptz/timestamptz.proto
 breaking:
   use:
     - WIRE_JSON
