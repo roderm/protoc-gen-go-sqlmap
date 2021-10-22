@@ -3,9 +3,7 @@ package types
 import (
 	"fmt"
 
-	proto "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"github.com/roderm/protoc-gen-go-sqlmap/sqlgen"
+	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen/v1"
 )
 
 type FKRelation = int8
@@ -40,6 +38,7 @@ type Field struct {
 	Repeated   bool
 	IsMessage  bool
 	Extensions map[string]interface{}
+	Column     sqlgen.Column
 }
 
 type FieldFK struct {
@@ -55,29 +54,30 @@ func gotField(table, col string) (*Field, bool) {
 	}
 	return nil, false
 }
-func NewField(table *Table, desc *descriptor.FieldDescriptorProto) *Field {
-	f := &Field{
-		Table:   table,
-		MsgName: desc.GetName(),
-	}
-	f.setColName(desc)
-	f.setPK(desc)
-	return f
-}
-func (f *Field) setColName(desc *descriptor.FieldDescriptorProto) {
-	v, err := proto.GetExtension(desc.Options, sqlgen.E_Dbcol)
-	if err == nil && v != nil {
-		f.ColName = *(v.(*string))
-	}
-}
-func (f *Field) setPK(desc *descriptor.FieldDescriptorProto) {
-	v, err := proto.GetExtension(desc.Options, sqlgen.E_Dbpk)
-	if err == nil && v != nil {
-		f.PK = *(v.(*sqlgen.PK))
-	} else {
-		f.PK = sqlgen.PK_NONE
-	}
-}
+
+// func NewField(table *Table, desc *descriptorpb.FieldDescriptorProto) *Field {
+// 	f := &Field{
+// 		Table:   table,
+// 		MsgName: desc.GetName(),
+// 	}
+// 	f.setColName(desc)
+// 	f.setPK(desc)
+// 	return f
+// }
+// func (f *Field) setColName(desc *descriptorpb.FieldDescriptorProto) {
+// 	v := proto.GetExtension(desc.Options, sqlgen.E_Dbcol)
+// 	if v != nil {
+// 		f.ColName = *(v.(*string))
+// 	}
+// }
+// func (f *Field) setPK(desc *descriptorpb.FieldDescriptorProto) {
+// 	v, ok := proto.GetExtension(desc.Options, sqlgen.E_Dbpk).(*sqlgen.PK)
+// 	if ok && v != nil {
+// 		f.PK = *v
+// 	} else {
+// 		f.PK = sqlgen.PK_PK_UNSPECIFIED
+// 	}
+// }
 
 func (f *Field) AddForeignKey(tm *TableMessages, table string, field string) {
 	t, ok := tm.GetTableByTableName(table)

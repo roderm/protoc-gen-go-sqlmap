@@ -2,12 +2,14 @@ syntax="proto3";
 
 package join;
 
-import "sqlgen/sqlgen.proto";
+import "proto/sqlgen/v1/sqlgen.proto";
+
+option go_package = "github.com/roderm/protoc-gen-go-sqlmap/test/proto/join";
 
 message Employee {
-    option (sqlgen.table) = {name:"tbl_employee",crud:[R]};
-    string EmployeeID = 1 [(sqlgen.dbpk) = AUTO, (sqlgen.dbcol) = "employee_id"];
-    string Firstname = 2 [(sqlgen.dbcol) = "employee_firstname"];
-    string Lastname = 3 [(sqlgen.dbcol) = "employee_lastname"];
-    Employee Manager = 4 [(sqlgen.dbcol) = "employee_manager", (sqlgen.dbfk) = "tbl_employee.employee_id"];
+    option (sqlgen.v1.table) = {name:"tbl_employee",crud:[R]};
+    string EmployeeID = 1 [(sqlgen.v1.col) = { pk: PK_AUTO, name: "employee_id"}];
+    string Firstname = 2 [(sqlgen.v1.col).name = "employee_firstname"];
+    string Lastname = 3 [(sqlgen.v1.col).name = "employee_lastname"];
+    Employee Manager = 4 [(sqlgen.v1.col) = {name: "employee_manager", fk:"tbl_employee.employee_id"}];
 }

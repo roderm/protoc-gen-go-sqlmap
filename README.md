@@ -8,7 +8,7 @@ This is a protobuf-plugin based on [gogo](https://github.com/gogo/protobuf) to g
 
 To make use of this plugin, add following extensions to you .proto-file:
 ```
-import "github.com/roderm/protoc-gen-go-sqlmap/sqlgen/sqlgen.proto" // Import of the extensions
+import "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen/v1/sqlgen.proto" // Import of the extensions
 
 message Some {
     option (sqlgen.table) = {name:"tbl_some", crud:[R]}; // table name and generate read-function
@@ -40,6 +40,7 @@ or for the sub-query:
 - [x] Implement insert
 - [x] Implement delete
 - [ ] Implement update
+- [ ] Decouple gogo
 - [-] Write generator test 
 - [ ] Support multiple PKs
 - [ ] Add multiple FKs for single Message

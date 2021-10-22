@@ -1,15 +1,15 @@
 syntax = "proto2";
 
-package sqlgen;
+package sqlgen.v1;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/roderm/protoc-gen-go-sqlmap/sqlgen";
+option go_package="github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen";
 
 enum PK {
-    NONE = 0;
-    AUTO = 1;
-    MAN = 2;
+    PK_UNSPECIFIED = 0;
+    PK_AUTO = 1;
+    PK_MAN = 2;
 }
 
 enum OPERATION {
@@ -23,6 +23,13 @@ message Table {
     required string name = 1;
     repeated OPERATION crud = 2;
 }
+
+message Column {
+	required string name = 1;
+	optional PK pk = 2;
+	optional string fk = 3;
+}
+
 extend google.protobuf.FileOptions {
     optional bool sqlgen = 800200;
     optional string StoreName = 800201;
@@ -35,7 +42,8 @@ extend google.protobuf.MessageOptions {
 }
 
 extend google.protobuf.FieldOptions {
-    optional string dbcol = 800110;
-    optional PK dbpk = 800111;
-    optional string dbfk = 800112;
+	optional Column col = 800110;
+    // optional string dbcol = 800110;
+    // optional PK dbpk = 800111;
+    // optional string dbfk = 800112;
 }

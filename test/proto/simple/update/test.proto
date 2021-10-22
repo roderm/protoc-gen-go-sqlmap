@@ -2,11 +2,13 @@ syntax="proto3";
 
 package update;
 
-import "sqlgen/sqlgen.proto";
+import "proto/sqlgen/v1/sqlgen.proto";
+
+option go_package = "github.com/roderm/protoc-gen-go-sqlmap/test/proto/simple/update";
 
 message Employee {
-    option (sqlgen.table) = {name:"tbl_employee",crud:[U]};
-    string Id = 1 [(sqlgen.dbpk) = AUTO, (sqlgen.dbcol) = "employee_id"];
-    string Firstname = 2 [(sqlgen.dbcol) = "employee_firstname"];
-    string Lastname = 3 [(sqlgen.dbcol) = "employee_lastname"];
+    option (sqlgen.v1.table) = {name:"tbl_employee",crud:[U]};
+    string Id = 1 [(sqlgen.v1.col) = {pk: PK_AUTO, name: "employee_id" }];
+    string Firstname = 2 [(sqlgen.v1.col).name = "employee_firstname"];
+    string Lastname = 3 [(sqlgen.v1.col).name = "employee_lastname"];
 }

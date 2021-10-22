@@ -1,10 +1,9 @@
 regenerate:
 	find ./test -type f -name *.proto -exec \
 		protoc \
-			--proto_path=..:. \
+			--proto_path=. \
 			-I=${GOPATH}/src/ \
-			-I=${GOPATH}/src/github.com/protocolbuffers/protobuf/src/ \
-			--go-sqlmap_out=Msqlgen/sqlgen.proto=github.com/roderm/protoc-gen-go-sqlmap/sqlgen:. \
+			--go-sqlmap_out=Mproto/sqlgen/v1/sqlgen.proto=github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen,paths=source_relative:. \
 		{} \;
 
 install:

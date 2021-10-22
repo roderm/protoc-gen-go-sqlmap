@@ -1,6 +1,6 @@
 syntax="proto3";
 
-package timestamptz;
+package timestamptz.v1;
 
 option go_package="github.com/roderm/protoc-gen-go-sqlmap/lib/proto/timestamptz";
 
@@ -9,5 +9,5 @@ message TimestampTZ {
 
     int32 nanos = 2;
     
-    string Zone = 3;
+    string zone = 3;
 }

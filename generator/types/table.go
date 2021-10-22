@@ -3,7 +3,7 @@ package types
 import (
 	"sort"
 
-	"github.com/roderm/protoc-gen-go-sqlmap/sqlgen"
+	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen/v1"
 )
 
 type TableMessages struct {
@@ -11,8 +11,10 @@ type TableMessages struct {
 }
 
 type Table struct {
-	Name    string
-	MsgName string
+	Engine    string
+	StoreName string
+	Name      string
+	MsgName   string
 	// desc   *generator.Descriptor
 	Cols   map[string]*Field
 	JSONB  bool
@@ -103,6 +105,15 @@ func (tm *TableMessages) GetTableByMessageName(tableName string) (*Table, bool) 
 	return nil, false
 }
 
+func (tm *TableMessages) GetTablesByStoreName(storeName string) []*Table {
+	ret := []*Table{}
+	for _, tbl := range tm.MessageTables {
+		if tbl.StoreName == storeName {
+			ret = append(ret, tbl)
+		}
+	}
+	return ret
+}
 func (tm *TableMessages) GetTableByTableName(tableName string) (*Table, bool) {
 	for _, tbl := range tm.MessageTables {
 		if tbl.Name == tableName {
@@ -115,7 +126,7 @@ func (tm *TableMessages) GetTableByTableName(tableName string) (*Table, bool) {
 func (m Table) GetPKs() []*Field {
 	Fields := []*Field{}
 	for _, f := range m.Cols {
-		if f.PK != sqlgen.PK_NONE {
+		if f.PK != sqlgen.PK_PK_UNSPECIFIED {
 			Fields = append(Fields, f)
 		}
 	}

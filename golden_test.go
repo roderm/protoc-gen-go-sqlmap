@@ -58,7 +58,7 @@ func TestGolden(t *testing.T) {
 			"--proto_path=.:test/proto",
 			fmt.Sprintf("-I=%s/src/", os.Getenv("GOPATH")),
 			fmt.Sprintf("-I=%s/src/github.com/protocolbuffers/protobuf/src/", os.Getenv("GOPATH")),
-			"--go-sqlmap_out=Msqlgen/sqlgen.proto=github.com/roderm/protoc-gen-go-sqlmap/sqlgen:" + workdir}
+			"--go-sqlmap_out=Msqlgen/sqlgen.proto=github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen/v1:" + workdir}
 		args = append(args, sources...)
 		protoc(t, args)
 	}

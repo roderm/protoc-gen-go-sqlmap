@@ -1,5 +1,5 @@
-version: v1beta1
+version: v1
 plugins:
-  - name: gogo
-    out: .
-    opt: paths=source_relative,Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor
+  - name: go
+    out: lib/go
+    opt: paths=source_relative

@@ -4,19 +4,8 @@ build:
   excludes:
     - test/
     - vendor/
-# lint:
-#   use:
-#     - BASIC
-#     - FILE_LOWER_SNAKE_CASE
-#   except:
-#     - ENUM_NO_ALLOW_ALIAS
-#     - IMPORT_NO_PUBLIC
-#     - PACKAGE_AFFINITY
-#     - PACKAGE_DIRECTORY_MATCH
-#     - PACKAGE_SAME_DIRECTORY
-#   ignore_only:
-#     FIELD_LOWER_SNAKE_CASE:
-#       - lib/proto/timestamptz/timestamptz.proto
-breaking:
+deps:
+  # - buf.build/protocolbuffers/protobuf
+lint:
   use:
-    - WIRE_JSON
+    - DEFAULT

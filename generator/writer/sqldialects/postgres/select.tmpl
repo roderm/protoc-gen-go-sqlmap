@@ -1,0 +1,60 @@
+{{ if .Read }}
+func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgName  }}Option) (map[string]*{{ .MsgName  }}, error) {
+	config := &query{{ .MsgName  }}Config{
+		Store: s,
+		filter: pg.NONE(),
+		rows: make(map[string]*{{ .MsgName  }}),
+	}
+	for _, o := range opts {
+		o(config)
+	}
+	err := s.select{{ .MsgName  }}(ctx, config.filter, func(row *{{ .MsgName  }}) {
+		config.rows[row.{{ GetPKName . }}] = row
+		for _, cb := range config.cb {
+			cb(row)
+		}
+	})
+	if err != nil {
+		return config.rows, err
+	}
+	{{ range $i, $f := SubQueries . }}
+	if config.load{{ $f.MsgName  }} {
+	 	_, err = s.{{ $f.FK.Remote.Table.MsgName  }}(ctx, config.opts{{ $f.MsgName }}...)
+	}
+	if err != nil {
+	 	return config.rows, err
+	}
+	{{ end }}
+	for _, cb := range config.beforeReturn {
+		err = cb(config.rows)
+		if err != nil {
+			return config.rows, err
+		}
+	}
+	return config.rows, nil
+}
+func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, filter pg.Where, withRow func(*{{ .MsgName  }})) error {
+	where, vals := pg.GetWhereClause(filter, nil)
+	stmt, err := s.conn.PrepareContext(ctx, ` 
+	SELECT "{{ getColumnNames .  "\", \"" }}" 
+	FROM "{{ .Name }}"
+	` +where)
+	if err != nil {
+		return err
+	}
+	cursor, err := stmt.QueryContext(ctx, vals...)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
+	for cursor.Next() {
+		row := new({{ .MsgName  }})
+		err := cursor.Scan( &row.{{ getFieldNames . ", &row." }} )
+		if err != nil {
+			return err
+		}
+		withRow(row)
+	}
+	return nil
+}
+{{ end }}
