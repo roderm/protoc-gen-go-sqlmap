@@ -4,8 +4,6 @@ package sqlgen.v1;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package="github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen";
-
 enum PK {
     PK_UNSPECIFIED = 0;
     PK_AUTO = 1;

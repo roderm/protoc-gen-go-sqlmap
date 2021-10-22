@@ -2,8 +2,6 @@ syntax="proto3";
 
 package timestamptz.v1;
 
-option go_package="github.com/roderm/protoc-gen-go-sqlmap/lib/proto/timestamptz";
-
 message TimestampTZ {
     int64 seconds = 1;
 
