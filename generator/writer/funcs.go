@@ -52,6 +52,13 @@ func GetTemplateFuns(p Printer) template.FuncMap {
 }
 
 var TplFuncs = template.FuncMap{
+	"PackagePrefix": func(local *types.Table, remote *types.Table) string {
+		if local.GoPackageImport == remote.GoPackageImport {
+			return ""
+		}
+		local.Imports[remote.GoPackageName] = remote.GoPackageImport
+		return fmt.Sprintf("%s.", remote.GoPackageName)
+	},
 	"SubQueries": func(t *types.Table) []*types.Field {
 		foreignKeys := []*types.Field{}
 		for _, f := range t.Cols {
@@ -82,8 +89,10 @@ var TplFuncs = template.FuncMap{
 		}
 		switch GetType(pk) {
 		case "int32":
+			t.Imports[""] = "encoding/binary"
 			return fmt.Sprintf("int32(binary.LittleEndian.Uint32(%s))", varName)
 		case "int64":
+			t.Imports[""] = "encoding/binary"
 			return fmt.Sprintf("int64(binary.LittleEndian.Uint64(%s))", varName)
 		}
 		return fmt.Sprintf("%s(%s)", GetType(pk), varName)

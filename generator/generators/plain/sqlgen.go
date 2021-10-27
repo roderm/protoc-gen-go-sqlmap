@@ -64,6 +64,13 @@ func (p *SqlGenerator) Name() string {
 func (p *SqlGenerator) SQLDialect() string {
 	return "postgres"
 }
+
+func (p *SqlGenerator) PackageImportName(filename string) string {
+	path := strings.Split(filename, "/")
+	file := strings.Split(path[len(path)-1], ".")
+
+	return file[0]
+}
 func (p *SqlGenerator) StoreName(filename string) string {
 	path := strings.Split(filename, "/")
 	file := strings.Split(path[len(path)-1], ".")
@@ -86,33 +93,31 @@ func hasOperation(tbl *sqlgen.Table, op sqlgen.OPERATION) bool {
 
 var genFileMap = make(map[string]*protogen.GeneratedFile)
 
-func generateImport(name string, importPath string, g *protogen.GeneratedFile) string {
-	return g.QualifiedGoIdent(protogen.GoIdent{
-		GoName:       name,
-		GoImportPath: protogen.GoImportPath(importPath),
-	})
-}
-
 func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 	p.loadTables()
 	p.loadFields()
 	p.loadDependencies()
 
+	writer.TableMessageStore = p.tables
 	for _, protoFile := range p.plugin.Files {
+		store := p.StoreName(protoFile.GeneratedFilenamePrefix)
+		tables := p.tables.GetTablesByStoreName(store)
+		if len(tables) == 0 {
+			continue
+		}
 		fileName := protoFile.GeneratedFilenamePrefix + ".sqlmap.go"
 		g := p.plugin.NewGeneratedFile(fileName, ".")
-		store := p.StoreName(protoFile.GeneratedFilenamePrefix)
 
 		p.currentPackage = protoFile.GoImportPath.String()
 
 		g.P("package ", protoFile.GoPackageName)
-		generateImport("fmt", "fmt", g)
-		generateImport("pg", "github.com/roderm/protoc-gen-go-sqlmap/lib/go/pg", g)
-		generateImport("sql", "database/sql", g)
-		generateImport("driver", "database/sql/driver", g)
-		generateImport("context", "context", g)
-		generateImport("json", "encoding/json", g)
-		generateImport("binary", "encoding/binary", g)
+		writer.GenerateImport("fmt", "fmt", g)
+		writer.GenerateImport("pg", "github.com/roderm/protoc-gen-go-sqlmap/lib/go/pg", g)
+		writer.GenerateImport("sql", "database/sql", g)
+		writer.GenerateImport("driver", "database/sql/driver", g)
+		writer.GenerateImport("context", "context", g)
+		writer.GenerateImport("json", "encoding/json", g)
+
 		g.P(`
 			var _ = fmt.Sprintf
 			var _ = context.TODO
@@ -120,7 +125,6 @@ func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 			var _ = sql.Open
 			var _ = driver.IsValue
 			var _ = json.Valid
-			var _ = binary.LittleEndian
 		`)
 		g.P(`
 			type ` + store + ` struct {
@@ -130,14 +134,17 @@ func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 				return &` + store + `{conn}
 			}
 		`)
-		writer.TableMessageStore = p.tables
-		for _, table := range p.tables.GetTablesByStoreName(store) {
+
+		for _, table := range tables {
 			writer.WriteEncodings(g, table)
 			writer.WriteNestedSelectors(g, table)
 			writer.WriteQueries(g, table)
 			writer.WriteInsertes(g, table)
 			writer.WriteUpdates(g, table)
 			writer.WriteDeletes(g, table)
+			for n, p := range table.Imports {
+				writer.GenerateImport(n, p, g)
+			}
 		}
 
 	}

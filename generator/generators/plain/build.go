@@ -20,16 +20,19 @@ func (p *SqlGenerator) loadTables() {
 				jsonb = &[]bool{false}[0]
 			}
 			p.tables.MessageTables[string(msg.Desc.Name())] = &types.Table{
-				Engine:    "postgres",
-				StoreName: p.StoreName(protoFile.GeneratedFilenamePrefix),
-				MsgName:   string(msg.Desc.Name()),
-				Name:      ext.GetName(),
-				JSONB:     *jsonb,
-				Create:    hasOperation(ext, sqlgen.OPERATION_C),
-				Read:      hasOperation(ext, sqlgen.OPERATION_R),
-				Update:    hasOperation(ext, sqlgen.OPERATION_U),
-				Delete:    hasOperation(ext, sqlgen.OPERATION_D),
-				Cols:      make(map[string]*types.Field),
+				GoPackageImport: string(protoFile.GoImportPath),
+				GoPackageName:   p.PackageImportName(protoFile.GeneratedFilenamePrefix),
+				Engine:          "postgres",
+				StoreName:       p.StoreName(protoFile.GeneratedFilenamePrefix),
+				MsgName:         string(msg.Desc.Name()),
+				Name:            ext.GetName(),
+				JSONB:           *jsonb,
+				Create:          hasOperation(ext, sqlgen.OPERATION_C),
+				Read:            hasOperation(ext, sqlgen.OPERATION_R),
+				Update:          hasOperation(ext, sqlgen.OPERATION_U),
+				Delete:          hasOperation(ext, sqlgen.OPERATION_D),
+				Cols:            make(map[string]*types.Field),
+				Imports:         make(map[string]string),
 			}
 		}
 	}

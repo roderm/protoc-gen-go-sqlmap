@@ -7,7 +7,8 @@ type query{{ .MsgName }}Config struct {
 	rows map[interface{}]*{{ .MsgName  }}
 	{{ range $i, $f := SubQueries . }}
 	load{{ $f.MsgName }} bool
-	opts{{ $f.MsgName }} []{{ $f.FK.Remote.Table.MsgName }}Option{{end}}
+	opts{{ $f.MsgName }} []{{ PackagePrefix $f.Table $f.FK.Remote.Table }}{{ $f.FK.Remote.Table.MsgName }}Option
+	{{end}}
 }
 
 type {{ .MsgName }}Option func(*query{{ .MsgName }}Config)
@@ -27,7 +28,7 @@ func {{ .MsgName }}OnRow(cb func(*{{ .MsgName }})) {{ .MsgName }}Option {
 	}
 }
 {{range $i, $f := SubQueries . }}
-func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ $f.FK.Remote.Table.MsgName }}Option) {{$.MsgName }}Option {
+func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ PackagePrefix $f.Table $f.FK.Remote.Table }}{{ $f.FK.Remote.Table.MsgName }}Option) {{$.MsgName }}Option {
 	return func(config *query{{ $.MsgName }}Config) {
 		map{{ $f.MsgName }} := make(map[interface{}]*{{ $.MsgName }})
 		config.load{{ $f.MsgName }} = true
@@ -40,7 +41,7 @@ func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ $f.FK.Remote.Table.MsgName }
 			{{end}}
 		})
 		config.opts{{ $f.MsgName }} = append(config.opts{{ $f.MsgName }}, 
-			{{ $f.FK.Remote.Table.MsgName }}OnRow(func(row *{{ $f.FK.Remote.Table.MsgName }}) {
+			{{ PackagePrefix $f.Table $f.FK.Remote.Table }}{{ $f.FK.Remote.Table.MsgName }}OnRow(func(row *{{ PackagePrefix $f.Table $f.FK.Remote.Table }}{{ $f.FK.Remote.Table.MsgName }}) {
 				{{ if IsReverseFK $f }} // reversed
 				if config.rows[row.{{ $f.MsgName }}] != nil {
 					row.{{ $f.MsgName }} = config.rows[row.{{ $f.MsgName }}]
@@ -58,7 +59,7 @@ func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ $f.FK.Remote.Table.MsgName }
 				}
 				{{end}}
 			}),
-			{{ $f.FK.Remote.Table.MsgName }}Filter(pg.INCallabel("{{ $f.DbfkField }}", func() []interface{} {
+			{{ PackagePrefix $f.Table $f.FK.Remote.Table }}{{ $f.FK.Remote.Table.MsgName }}Filter(pg.INCallabel("{{ $f.DbfkField }}", func() []interface{} {
 				ids := []interface{}{}
 				for id := range map{{ $f.MsgName }} {
 					ids = append(ids, id)

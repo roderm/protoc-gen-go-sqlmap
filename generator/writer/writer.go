@@ -6,11 +6,19 @@ import (
 	"text/template"
 
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
+	"google.golang.org/protobuf/compiler/protogen"
 )
 
 //go:embed sqldialects/*
 
 var f embed.FS
+
+func GenerateImport(name string, importPath string, g *protogen.GeneratedFile) string {
+	return g.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       name,
+		GoImportPath: protogen.GoImportPath(importPath),
+	})
+}
 
 func WriteQueries(g Printer, m *types.Table) {
 	tplContent, err := f.ReadFile(fmt.Sprintf("sqldialects/%s/select.tmpl", m.Engine))

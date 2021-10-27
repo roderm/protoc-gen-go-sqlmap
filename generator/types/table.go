@@ -11,10 +11,12 @@ type TableMessages struct {
 }
 
 type Table struct {
-	Engine    string
-	StoreName string
-	Name      string
-	MsgName   string
+	GoPackageName   string
+	GoPackageImport string
+	Engine          string
+	StoreName       string
+	Name            string
+	MsgName         string
 	// desc   *generator.Descriptor
 	Cols   map[string]*Field
 	JSONB  bool
@@ -22,6 +24,8 @@ type Table struct {
 	Read   bool
 	Update bool
 	Delete bool
+
+	Imports map[string]string
 }
 
 func (tm *Table) GetColumnByMessageName(message string) (*Field, bool) {
