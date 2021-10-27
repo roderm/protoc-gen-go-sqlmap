@@ -2,9 +2,9 @@
 type query{{ .MsgName }}Config struct {
 	Store *{{ .StoreName }}
 	filter pg.Where 
-	beforeReturn []func(map[string]*{{ .MsgName  }}) error
+	beforeReturn []func(map[interface{}]*{{ .MsgName  }}) error
 	cb []func(*{{ .MsgName }})
-	rows map[string]*{{ .MsgName  }}
+	rows map[interface{}]*{{ .MsgName  }}
 	{{ range $i, $f := SubQueries . }}
 	load{{ $f.MsgName }} bool
 	opts{{ $f.MsgName }} []{{ $f.FK.Remote.Table.MsgName }}Option{{end}}
@@ -29,7 +29,7 @@ func {{ .MsgName }}OnRow(cb func(*{{ .MsgName }})) {{ .MsgName }}Option {
 {{range $i, $f := SubQueries . }}
 func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ $f.FK.Remote.Table.MsgName }}Option) {{$.MsgName }}Option {
 	return func(config *query{{ $.MsgName }}Config) {
-		map{{ $f.MsgName }} := make(map[string]*{{ $.MsgName }})
+		map{{ $f.MsgName }} := make(map[interface{}]*{{ $.MsgName }})
 		config.load{{ $f.MsgName }} = true
 		config.opts{{ $f.MsgName }} = opts
 		config.cb = append(config.cb, func(row *{{ $.MsgName }}) {

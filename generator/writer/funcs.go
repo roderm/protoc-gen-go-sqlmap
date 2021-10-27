@@ -1,6 +1,7 @@
 package writer
 
 import (
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -19,6 +20,17 @@ func GetPK(t *types.Table) *types.Field {
 	return nil
 }
 
+func getFullFieldName(f *types.Field) string {
+	table, ok := TableMessageStore.GetTableByTableName(f.Table.Name)
+	if ok {
+		for _, c := range table.Cols {
+			if f.DbfkField == c.ColName && c.PK != sqlgen.PK_PK_UNSPECIFIED {
+				return f.MsgName + "." + strings.Title(c.MsgName)
+			}
+		}
+	}
+	return f.MsgName
+}
 func GetType(f *types.Field) string {
 	switch f.Type {
 	case "TYPE_STRING":
@@ -63,12 +75,18 @@ var TplFuncs = template.FuncMap{
 		}
 		return pk.MsgName
 	},
-	"GetPKType": func(t *types.Table) string {
+	"GetPKConvert": func(t *types.Table, varName string) string {
 		pk := GetPK(t)
 		if pk == nil {
 			return "interface{}"
 		}
-		return GetType(pk)
+		switch GetType(pk) {
+		case "int32":
+			return fmt.Sprintf("int32(binary.LittleEndian.Uint32(%s))", varName)
+		case "int64":
+			return fmt.Sprintf("int64(binary.LittleEndian.Uint64(%s))", varName)
+		}
+		return fmt.Sprintf("%s(%s)", GetType(pk), varName)
 	},
 	"IsReverseFK": func(fk *types.Field) bool {
 		return false
@@ -86,22 +104,12 @@ var TplFuncs = template.FuncMap{
 		str := ""
 		for _, f := range t.GetOrderedCols() {
 			if (f.FK.Remote == nil || !f.Repeated) && len(f.ColName) > 0 {
-				str = str + f.MsgName + separator
+				str = str + strings.Title(f.MsgName) + separator
 			}
 		}
 		return strings.TrimSuffix(str, separator)
 	},
-	"getFullFieldName": func(f *types.Field) string {
-		table, ok := TableMessageStore.GetTableByTableName(f.Table.Name)
-		if ok {
-			for _, c := range table.Cols {
-				if f.DbfkField == c.ColName && c.PK != sqlgen.PK_PK_UNSPECIFIED {
-					return f.MsgName + "." + c.MsgName
-				}
-			}
-		}
-		return f.MsgName
-	},
+	"getFullFieldName": getFullFieldName,
 	"GetInsertFieldNames": func(t *types.Table, separator string) string {
 		str := ""
 		cols := []string{}
@@ -115,24 +123,41 @@ var TplFuncs = template.FuncMap{
 		}
 		for _, f := range t.GetOrderedCols() {
 			if f.PK == sqlgen.PK_PK_MAN || (f.PK != sqlgen.PK_PK_AUTO && !f.Repeated && len(f.ColName) > 0 && !inCols(f.ColName)) {
-				if f.IsMessage {
-					tbl, ok := TableMessageStore.GetTableByTableName(f.DbfkTable)
-					if !ok {
-						continue
-					}
-					fld, ok := tbl.GetColumnByMessageName(f.FK.Remote.MsgName)
-					if !ok {
-						continue
-					}
-
-					str = str + GetFieldName(f) + "." + GetFieldName(fld) + separator
-				} else {
-					str = str + GetFieldName(f) + separator
-					cols = append(cols, f.ColName)
-				}
+				cols = append(cols, f.ColName)
+				str = str + getFullFieldName(f) + separator
 			}
 		}
 		return strings.TrimSuffix(str, separator)
+		// str := ""
+		// cols := []string{}
+		// inCols := func(new string) bool {
+		// 	for _, c := range cols {
+		// 		if new == c {
+		// 			return true
+		// 		}
+		// 	}
+		// 	return false
+		// }
+		// for _, f := range t.GetOrderedCols() {
+		// 	if f.PK == sqlgen.PK_PK_MAN || (f.PK != sqlgen.PK_PK_AUTO && !f.Repeated && len(f.ColName) > 0 && !inCols(f.ColName)) {
+		// 		if f.IsMessage {
+		// 			tbl, ok := TableMessageStore.GetTableByTableName(f.DbfkTable)
+		// 			if !ok {
+		// 				continue
+		// 			}
+		// 			fld, ok := tbl.GetColumnByMessageName(f.FK.Remote.MsgName)
+		// 			if !ok {
+		// 				continue
+		// 			}
+
+		// 			str = str + GetFieldName(f) + "." + GetFieldName(fld) + separator
+		// 		} else {
+		// 			str = str + GetFieldName(f) + separator
+		// 			cols = append(cols, f.ColName)
+		// 		}
+		// 	}
+		// }
+		// return strings.TrimSuffix(str, separator)
 	},
 	"GetInsertColNames": func(t *types.Table, separator string) string {
 		str := ""

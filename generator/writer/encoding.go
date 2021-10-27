@@ -25,7 +25,7 @@ func (m *{{ .MsgName }}) Scan(value interface{}) error {
 	if !ok {
 		return fmt.Errorf("Failed %+v", value)
 	}
-	m.{{ GetPKName . }} = {{ GetPKType . }}(buff)
+	m.{{ GetPKName . }} = {{ GetPKConvert . "buff" }}
 	return nil
 }
 

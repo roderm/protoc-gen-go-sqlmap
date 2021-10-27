@@ -47,7 +47,7 @@ func (p *SqlGenerator) loadFields() {
 				field := &types.Field{
 					ColName:    ext.GetName(),
 					Table:      p.tables.MessageTables[string(msg.Desc.Name())],
-					MsgName:    string(f.Desc.Name()),
+					MsgName:    strings.Title(string(f.Desc.Name())),
 					Repeated:   f.Desc.IsList(),
 					IsMessage:  f.Desc.Message() != nil,
 					Extensions: make(map[string]interface{}),

@@ -1,9 +1,9 @@
 {{ if .Read }}
-func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgName  }}Option) (map[string]*{{ .MsgName  }}, error) {
+func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgName  }}Option) (map[interface{}]*{{ .MsgName  }}, error) {
 	config := &query{{ .MsgName  }}Config{
 		Store: s,
 		filter: pg.NONE(),
-		rows: make(map[string]*{{ .MsgName  }}),
+		rows: make(map[interface{}]*{{ .MsgName  }}),
 	}
 	for _, o := range opts {
 		o(config)

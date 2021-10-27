@@ -112,6 +112,7 @@ func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 		generateImport("driver", "database/sql/driver", g)
 		generateImport("context", "context", g)
 		generateImport("json", "encoding/json", g)
+		generateImport("binary", "encoding/binary", g)
 		g.P(`
 			var _ = fmt.Sprintf
 			var _ = context.TODO
@@ -119,6 +120,7 @@ func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 			var _ = sql.Open
 			var _ = driver.IsValue
 			var _ = json.Valid
+			var _ = binary.LittleEndian
 		`)
 		g.P(`
 			type ` + store + ` struct {
