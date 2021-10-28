@@ -1,6 +1,6 @@
 syntax="proto3";
 
-package timestamptz.v1;
+package timestamptz;
 
 message TimestampTZ {
     int64 seconds = 1;

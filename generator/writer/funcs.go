@@ -6,7 +6,7 @@ import (
 	"text/template"
 
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
-	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen/v1"
+	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
 )
 
 var TableMessageStore *types.TableMessages
@@ -49,6 +49,32 @@ func GetType(f *types.Field) string {
 
 func GetTemplateFuns(p Printer) template.FuncMap {
 	return TplFuncs
+}
+
+func getInsertFields(t *types.Table) []*types.Field {
+	fields := []*types.Field{}
+	isPK := func(field *types.Field) bool {
+		for _, pk := range t.GetPKs() {
+			if pk.ColName == field.ColName {
+				return true
+			}
+		}
+		return false
+	}
+	inCols := func(new *types.Field) bool {
+		for _, c := range fields {
+			if new.ColName == c.ColName {
+				return true
+			}
+		}
+		return false
+	}
+	for _, f := range t.GetOrderedCols() {
+		if f.PK == sqlgen.PK_PK_MAN || (f.PK != sqlgen.PK_PK_AUTO && !f.Repeated && len(f.ColName) > 0 && !inCols(f) && !isPK(f)) {
+			fields = append(fields, f)
+		}
+	}
+	return fields
 }
 
 var TplFuncs = template.FuncMap{
@@ -121,20 +147,8 @@ var TplFuncs = template.FuncMap{
 	"getFullFieldName": getFullFieldName,
 	"GetInsertFieldNames": func(t *types.Table, separator string) string {
 		str := ""
-		cols := []string{}
-		inCols := func(new string) bool {
-			for _, c := range cols {
-				if new == c {
-					return true
-				}
-			}
-			return false
-		}
-		for _, f := range t.GetOrderedCols() {
-			if f.PK == sqlgen.PK_PK_MAN || (f.PK != sqlgen.PK_PK_AUTO && !f.Repeated && len(f.ColName) > 0 && !inCols(f.ColName)) {
-				cols = append(cols, f.ColName)
-				str = str + getFullFieldName(f) + separator
-			}
+		for _, f := range getInsertFields(t) {
+			str = str + getFullFieldName(f) + separator
 		}
 		return strings.TrimSuffix(str, separator)
 		// str := ""
@@ -170,24 +184,12 @@ var TplFuncs = template.FuncMap{
 	},
 	"GetInsertColNames": func(t *types.Table, separator string) string {
 		str := ""
-		cols := []string{}
-		inCols := func(new string) bool {
-			for _, c := range cols {
-				if new == c {
-					return true
-				}
-			}
-			return false
-		}
-		for _, f := range t.GetOrderedCols() {
-			if f.PK == sqlgen.PK_PK_MAN || (f.PK != sqlgen.PK_PK_AUTO && !f.Repeated && len(f.ColName) > 0 && !inCols(f.ColName)) {
-				cols = append(cols, f.ColName)
-				str = str + f.ColName + separator
-			}
+		for _, f := range getInsertFields(t) {
+			str = str + f.ColName + separator
 		}
 		return strings.TrimSuffix(str, separator)
 	},
-	"getInsertFields": func(t *types.Table) []*types.Field {
+	"GetUpdateFields": func(t *types.Table) []*types.Field {
 		cols := []*types.Field{}
 		inCols := func(new *types.Field) bool {
 			for _, c := range cols {

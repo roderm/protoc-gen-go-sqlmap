@@ -7,7 +7,7 @@ import (
 
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/writer"
-	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen/v1"
+	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"
 )
@@ -102,6 +102,7 @@ func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 	for _, protoFile := range p.plugin.Files {
 		store := p.StoreName(protoFile.GeneratedFilenamePrefix)
 		tables := p.tables.GetTablesByStoreName(store)
+
 		if len(tables) == 0 {
 			continue
 		}

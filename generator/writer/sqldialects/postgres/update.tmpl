@@ -4,7 +4,7 @@ func (m *{{ .MsgName  }}) Update(s *{{ .StoreName }}, ctx context.Context, conf 
 	if conf == nil {
 		conf = &pg.UpdateSQL{
 			ValueMap: make(map[string]interface{}),
-		}{{ range $i, $f := getInsertFields .}}
+		}{{ range $i, $f := GetUpdateFields .}}
 		conf.ValueMap["{{ $f.ColName }}"] = m.{{ $f.MsgName }}{{end}}
 	}
 	stmt, err := s.conn.PrepareContext(ctx, `

@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
-	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen/v1"
+	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
 	"google.golang.org/protobuf/proto"
 )
 
