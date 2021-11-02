@@ -2,7 +2,8 @@ name: build
 on:
   push:
 
-run:
+jobs:
+  run:
     name: build
     runs-on: ["ubuntu-latest"]
     steps:
