@@ -1,0 +1,59 @@
+name: release
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+jobs:
+  test:
+    runs-on: ["ubuntu-latest"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.17'
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+      - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - uses: bufbuild/buf-setup-action@v0.6.0
+      - run: make install  
+      - name: run tests
+        run: make test
+  release:
+    runs-on: ["ubuntu-latest"]
+    needs: test
+    steps:
+      - uses: actions/checkout@v2
+      - uses: bufbuild/buf-setup-action@v0.6.0
+      - uses: actions/download-artifact@v2
+        with:
+          name: release-candiate
+      - run: buf push -t ${{ github.ref }}
+      - uses: actions/create-release@v1.0.0
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          prerelease: false
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+  builds:
+    runs-on: ["ubuntu-latest"]
+    needs: release
+    strategy:
+      matrix:
+        GOARCH: ["386", "amd64"]
+        GOOS: ["linux", "windows"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.17'
+      - run: GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} go build -o protoc-gen-go-sql-{{matrix.GOOS}}-{{matrix.GOARCH}}
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: protoc-gen-go-sql-{{matrix.GOOS}}-{{matrix.GOARCH}}
+          tag: ${{ github.ref }}
+          asset_name: protoc-gen-go-sql-{{matrix.GOOS}}-{{matrix.GOARCH}}
+          overwrite: false
+          prerelease: false
