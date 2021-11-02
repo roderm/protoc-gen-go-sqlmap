@@ -2,7 +2,7 @@ syntax="proto3";
 
 package join;
 
-import "proto/sqlgen/v1/sqlgen.proto";
+import "proto/sqlgen/sqlgen.proto";
 
 option go_package = "github.com/roderm/protoc-gen-go-sqlmap/test/proto/jsonb";
 
@@ -13,14 +13,14 @@ enum LOG_LEVEL {
     DEBUG = 3;
 }
 message Product {
-    option (sqlgen.v1.table) = {name:"tbl_product",crud:[R]};
-    string ProductID = 1 [(sqlgen.v1.col) = {pk: PK_AUTO, name: "product_id"}];
-    string ProductName = 2 [(sqlgen.v1.col).name = "product_name"];
-    ProductConfig Config = 3 [(sqlgen.v1.col).name = "product_config"];
+    option (sqlgen.table) = {name:"tbl_product",crud:[R]};
+    string ProductID = 1 [(sqlgen.col) = {pk: PK_AUTO, name: "product_id"}];
+    string ProductName = 2 [(sqlgen.col).name = "product_name"];
+    ProductConfig Config = 3 [(sqlgen.col).name = "product_config"];
 }
 
 message ProductConfig {
-    option (sqlgen.v1.jsonb) = true;
+    option (sqlgen.jsonb) = true;
     string ProductVersion = 1;
     string Domain = 2;
     LOG_LEVEL LogLevel = 3;
