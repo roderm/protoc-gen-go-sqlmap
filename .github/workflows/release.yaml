@@ -27,7 +27,6 @@ jobs:
       - uses: bufbuild/buf-push-action@v1
         with:
           buf_token: ${{ secrets.BUF_TOKEN }}
-      - run: buf push -t ${{ github.ref }}
       - uses: actions/create-release@v1.0.0
         id: create_release
         env:
