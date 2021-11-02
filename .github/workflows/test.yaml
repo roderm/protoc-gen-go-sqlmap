@@ -1,4 +1,4 @@
-name: build
+name: test
 on:
   push:
 
@@ -13,6 +13,7 @@ jobs:
           go-version: '^1.17'
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
+      - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - uses: bufbuild/buf-setup-action@v0.6.0
       - run: make install  
       - run: make test
