@@ -19,7 +19,7 @@ func (m *{{ .MsgName }}) Scan(value interface{}) error {
 func (m *{{ .MsgName }}) Value() (driver.Value, error) {
 	return json.Marshal(m)
 }
-{{else}}
+{{else if HasPK .}}
 func (m *{{ .MsgName }}) Scan(value interface{}) error {
 	buff, ok := value.([]byte)
 	if !ok {
@@ -31,6 +31,10 @@ func (m *{{ .MsgName }}) Scan(value interface{}) error {
 
 func (m *{{ .MsgName }}) Value() (driver.Value, error) {
 	return m.{{ GetPKName . }}, nil
+}
+
+func (m *{{ .MsgName }}) GetIdentifier() interface{} {
+	return m.{{ GetPKName . }}
 }
 {{end}}
 `

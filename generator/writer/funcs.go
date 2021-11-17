@@ -5,12 +5,16 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/iancoleman/strcase"
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
 	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
 )
 
 var TableMessageStore *types.TableMessages
 
+func toPascalCase(in string) string {
+	return strcase.ToCamel(in)
+}
 func GetPK(t *types.Table) *types.Field {
 	for _, c := range t.Cols {
 		if c.PK != sqlgen.PK_PK_UNSPECIFIED {
@@ -98,6 +102,9 @@ var TplFuncs = template.FuncMap{
 		}
 		return foreignKeys
 	},
+	"HasPK": func(t *types.Table) bool {
+		return GetPK(t) != nil
+	},
 	"GetPKCol": func(t *types.Table) string {
 		return GetPK(t).ColName
 	},
@@ -139,7 +146,7 @@ var TplFuncs = template.FuncMap{
 		str := ""
 		for _, f := range t.GetOrderedCols() {
 			if (f.FK.Remote == nil || !f.Repeated) && len(f.ColName) > 0 {
-				str = str + strings.Title(f.MsgName) + separator
+				str = str + toPascalCase(f.MsgName) + separator
 			}
 		}
 		return strings.TrimSuffix(str, separator)
