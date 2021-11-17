@@ -37,6 +37,10 @@ func (m *Employee) Value() (driver.Value, error) {
 	return m.Id, nil
 }
 
+func (m *Employee) GetIdentifier() interface{} {
+	return m.Id
+}
+
 func (m *Employee) Update(s *TestStore, ctx context.Context, conf *pg.UpdateSQL) error {
 	base := 1
 	if conf == nil {

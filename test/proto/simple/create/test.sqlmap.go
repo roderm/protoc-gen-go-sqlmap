@@ -37,6 +37,10 @@ func (m *Employee) Value() (driver.Value, error) {
 	return m.Id, nil
 }
 
+func (m *Employee) GetIdentifier() interface{} {
+	return m.Id
+}
+
 func (m *Employee) Insert(s *TestStore, ctx context.Context) error {
 	ins := pg.NewInsert()
 	ins.Add(m.Firstname, m.Lastname)

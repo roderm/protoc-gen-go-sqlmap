@@ -37,6 +37,10 @@ func (m *Employee) Value() (driver.Value, error) {
 	return m.Id, nil
 }
 
+func (m *Employee) GetIdentifier() interface{} {
+	return m.Id
+}
+
 type queryEmployeeConfig struct {
 	Store        *TestStore
 	filter       pg.Where

@@ -37,6 +37,10 @@ func (m *Employee) Value() (driver.Value, error) {
 	return m.EmployeeID, nil
 }
 
+func (m *Employee) GetIdentifier() interface{} {
+	return m.EmployeeID
+}
+
 type queryEmployeeConfig struct {
 	Store        *TestStore
 	filter       pg.Where
@@ -80,9 +84,11 @@ func EmployeeWithManager(opts ...EmployeeOption) EmployeeOption {
 			EmployeeOnRow(func(row *Employee) {
 
 				// one-to-one
-				item := mapManager[row.EmployeeID]
-				if config.rows[item.EmployeeID] != nil {
-					config.rows[item.EmployeeID].Manager = row
+				item, ok := mapManager[row.EmployeeID]
+				if ok && item != nil {
+					if config.rows[item.EmployeeID] != nil {
+						config.rows[item.EmployeeID].Manager = row
+					}
 				}
 
 			}),
