@@ -35,7 +35,9 @@ func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ PackagePrefix $f.Table $f.FK
 		config.opts{{ $f.MsgName }} = opts
 		config.cb = append(config.cb, func(row *{{ $.MsgName }}) {
 			{{if $f.Repeated }} // repeated
-				map{{ $f.MsgName }}[row.{{ GetPKName $ }}] = row
+				map{{ $f.MsgName }}[row.Get{{ GetPKName $ }}()] = row
+			{{ else if ne $f.Oneof "" }}
+				map{{ $f.MsgName }}[row.Get{{ GetPKName $ }}()] = row
 			{{else}} // one-to-one
 				map{{ $f.MsgName }}[row.{{ getFullFieldName $f }}] = row
 			{{end}}
@@ -56,7 +58,11 @@ func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ PackagePrefix $f.Table $f.FK
 				item, ok := map{{ $f.MsgName }}[row.{{ GetPKName $f.FK.Remote.Table }}]
 				if ok && item != nil {
 					if config.rows[item.{{ GetPKName $ }}] != nil {
+					{{- if ne $f.Oneof "" }}
+					    config.rows[item.{{ GetPKName $ }}].{{ Title $f.Oneof }} = &{{ $.MsgName }}_{{ $f.MsgName }}{ {{$f.MsgName}}: row }
+					{{- else }}
 						config.rows[item.{{ GetPKName $ }}].{{ $f.MsgName }} = row
+					{{- end }}
 					}
 				}
 				{{end}}

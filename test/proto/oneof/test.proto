@@ -1,0 +1,30 @@
+syntax="proto3";
+
+package oneof;
+
+import "proto/sqlgen/sqlgen.proto";
+
+option go_package = "github.com/roderm/protoc-gen-go-sqlmap/test/proto/oneof";
+
+message Product {
+    option (sqlgen.table) = {name:"tbl_product",crud:[R]};
+    string ProductID = 1 [(sqlgen.col) = {pk: PK_AUTO, name: "product_id"}];
+    string ProductName = 2 [(sqlgen.col).name = "product_name"];
+	int32 ProductType = 3 [(sqlgen.col).name = "product_type"];
+	oneof Type {
+		Software software = 4 [(sqlgen.col) = {name: "product_id", fk: "tbl_software.product_id"}];
+		Hardware hardware = 5 [(sqlgen.col) = {name: "product_id", fk: "tbl_hardware.product_id"}];
+	}		
+}
+
+message Software {
+	option (sqlgen.table) = {name:"tbl_software",crud:[R]};
+	string ProductID = 1 [(sqlgen.col) = {pk: PK_MAN, name: "product_id"}];
+	string Version = 2 [(sqlgen.col) = {name: "product_version"}];
+}
+
+message Hardware {
+	option (sqlgen.table) = {name:"tbl_hardware",crud:[R]};
+	string ProductID = 1 [(sqlgen.col) = {pk: PK_MAN, name: "product_id"}];
+	string Serial = 2 [(sqlgen.col) = {name: "product_serial"}];
+}

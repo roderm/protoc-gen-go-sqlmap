@@ -30,6 +30,7 @@ type Field struct {
 	MsgName   string
 	PK        sqlgen.PK
 	needQuery bool
+	Oneof     string
 	// dbfk      string
 	DbfkField  string
 	DbfkTable  string
