@@ -33,7 +33,7 @@ func NONE() Where {
 func EQ(column string, value interface{}) Where {
 	return func(paramBase *int) (string, []interface{}) {
 		*paramBase++
-		return fmt.Sprintf("\"%s\" = $%d", column, *paramBase), []interface{}{value}
+		return fmt.Sprintf("\"%s\" = $%d", escapeColName(column), *paramBase), []interface{}{value}
 	}
 }
 
@@ -41,7 +41,7 @@ func EQ(column string, value interface{}) Where {
 func NEQ(column string, value interface{}) Where {
 	return func(paramBase *int) (string, []interface{}) {
 		*paramBase++
-		return fmt.Sprintf("\"%s\" != $%d", column, *paramBase), []interface{}{value}
+		return fmt.Sprintf("\"%s\" != $%d", escapeColName(column), *paramBase), []interface{}{value}
 	}
 }
 
@@ -70,7 +70,7 @@ func IN(column string, values ...interface{}) Where {
 			// if no values received, "0=1" => No values
 			return fmt.Sprintf("%d = %d", 0, 1), []interface{}{}
 		}
-		return fmt.Sprintf("\"%s\" IN ( %s )", column, joinN(len(values), paramBase, ",")), values
+		return fmt.Sprintf("\"%s\" IN ( %s )", escapeColName(column), joinN(len(values), paramBase, ",")), values
 	}
 }
 
@@ -82,7 +82,7 @@ func INCallabel(column string, callable func() []interface{}) Where {
 			// if no values received, "0=1" => No values
 			return fmt.Sprintf("%d = %d", 0, 1), []interface{}{}
 		}
-		return fmt.Sprintf("\"%s\" IN ( %s )", column, joinN(len(values), paramBase, ",")), values
+		return fmt.Sprintf("\"%s\" IN ( %s )", escapeColName(column), joinN(len(values), paramBase, ",")), values
 	}
 }
 
