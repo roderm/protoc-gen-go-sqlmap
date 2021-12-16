@@ -3,12 +3,13 @@ func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgN
 	config := &query{{ .MsgName  }}Config{
 		Store: s,
 		filter: pg.NONE(),
+		limit: 1000,
 		rows: make(map[interface{}]*{{ .MsgName  }}),
 	}
 	for _, o := range opts {
 		o(config)
 	}
-	err := s.select{{ .MsgName  }}(ctx, config.filter, func(row *{{ .MsgName  }}) {
+	err := s.select{{ .MsgName  }}(ctx, config, func(row *{{ .MsgName  }}) {
 		config.rows[row.{{ GetPKName . }}] = row
 		for _, cb := range config.cb {
 			cb(row)
@@ -39,15 +40,27 @@ func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgN
 	}
 	return config.rows, nil
 }
-func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, filter pg.Where, withRow func(*{{ .MsgName  }})) error {
-	where, vals := pg.GetWhereClause(filter, nil)
-	stmt, err := s.conn.PrepareContext(ctx, ` 
+func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, config *query{{ .MsgName  }}Config, withRow func(*{{ .MsgName  }})) error {
+	base := 0
+	placeholders := func(base *int, length int) []interface{} {
+		arr := make([]interface{}, length)
+		for i := range arr {
+			*base++
+			arr[i] = fmt.Sprintf("$%d", *base)
+		}
+		return arr
+	}
+	where, vals := pg.GetWhereClause(config.filter, &base)
+	params := append([]interface{}{where}, placeholders(&base, 2)...)
+	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
 	SELECT "{{ getColumnNames .  "\", \"" }}" 
 	FROM "{{ .Name }}"
-	` +where)
+	%s
+	LIMIT %s OFFSET %s`, params...))
 	if err != nil {
 		return err
 	}
+	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
 		return err
