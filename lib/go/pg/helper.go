@@ -16,6 +16,6 @@ func joinN(n int, paramBase *int, sep string) string {
 }
 
 func escapeColName(in string) string {
-	m := regexp.MustCompile("/[A-z|0-9|_]*/").FindAllString(in, len(in)+1)
+	m := regexp.MustCompile("[A-z|0-9|_]*").FindAllString(in, len(in)+1)
 	return strings.Join(m, "")
 }
