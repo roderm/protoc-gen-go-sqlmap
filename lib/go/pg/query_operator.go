@@ -99,6 +99,9 @@ func AND(ops ...Where) Where {
 			values = append(values, v...)
 			where = append(where, s)
 		}
+		if len(where) == 0 {
+			return "", values
+		}
 		return fmt.Sprintf("(%s)", strings.Join(where, " AND ")), values
 	}
 }
@@ -115,6 +118,9 @@ func OR(ops ...Where) Where {
 			}
 			values = append(values, v...)
 			where = append(where, s)
+		}
+		if len(where) == 0 {
+			return "", values
 		}
 		return fmt.Sprintf("(%s)", strings.Join(where, " OR ")), values
 	}

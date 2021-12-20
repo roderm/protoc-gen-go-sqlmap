@@ -44,6 +44,8 @@ func (m *Employee) GetIdentifier() interface{} {
 type queryEmployeeConfig struct {
 	Store        *TestStore
 	filter       pg.Where
+	start        int
+	limit        int
 	beforeReturn []func(map[interface{}]*Employee) error
 	cb           []func(*Employee)
 	rows         map[interface{}]*Employee
@@ -51,6 +53,12 @@ type queryEmployeeConfig struct {
 
 type EmployeeOption func(*queryEmployeeConfig)
 
+func EmployeePaging(page, length int) EmployeeOption {
+	return func(config *queryEmployeeConfig) {
+		config.start = length * page
+		config.limit = length
+	}
+}
 func EmployeeFilter(filter pg.Where) EmployeeOption {
 	return func(config *queryEmployeeConfig) {
 		if config.filter == nil {
@@ -71,12 +79,13 @@ func (s *TestStore) Employee(ctx context.Context, opts ...EmployeeOption) (map[i
 	config := &queryEmployeeConfig{
 		Store:  s,
 		filter: pg.NONE(),
+		limit:  1000,
 		rows:   make(map[interface{}]*Employee),
 	}
 	for _, o := range opts {
 		o(config)
 	}
-	err := s.selectEmployee(ctx, config.filter, func(row *Employee) {
+	err := s.selectEmployee(ctx, config, func(row *Employee) {
 		config.rows[row.Id] = row
 		for _, cb := range config.cb {
 			cb(row)
@@ -94,15 +103,27 @@ func (s *TestStore) Employee(ctx context.Context, opts ...EmployeeOption) (map[i
 	}
 	return config.rows, nil
 }
-func (s *TestStore) selectEmployee(ctx context.Context, filter pg.Where, withRow func(*Employee)) error {
-	where, vals := pg.GetWhereClause(filter, nil)
-	stmt, err := s.conn.PrepareContext(ctx, ` 
+func (s *TestStore) selectEmployee(ctx context.Context, config *queryEmployeeConfig, withRow func(*Employee)) error {
+	base := 0
+	placeholders := func(base *int, length int) []interface{} {
+		arr := make([]interface{}, length)
+		for i := range arr {
+			*base++
+			arr[i] = fmt.Sprintf("$%d", *base)
+		}
+		return arr
+	}
+	where, vals := pg.GetWhereClause(config.filter, &base)
+	params := append([]interface{}{where}, placeholders(&base, 2)...)
+	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
 	SELECT "employee_id", "employee_firstname", "employee_lastname" 
 	FROM "tbl_employee"
-	`+where)
+	%s
+	LIMIT %s OFFSET %s`, params...))
 	if err != nil {
 		return err
 	}
+	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
 		return err

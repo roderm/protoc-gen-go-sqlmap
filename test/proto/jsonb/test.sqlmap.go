@@ -44,6 +44,8 @@ func (m *Product) GetIdentifier() interface{} {
 type queryProductConfig struct {
 	Store        *TestStore
 	filter       pg.Where
+	start        int
+	limit        int
 	beforeReturn []func(map[interface{}]*Product) error
 	cb           []func(*Product)
 	rows         map[interface{}]*Product
@@ -51,6 +53,12 @@ type queryProductConfig struct {
 
 type ProductOption func(*queryProductConfig)
 
+func ProductPaging(page, length int) ProductOption {
+	return func(config *queryProductConfig) {
+		config.start = length * page
+		config.limit = length
+	}
+}
 func ProductFilter(filter pg.Where) ProductOption {
 	return func(config *queryProductConfig) {
 		if config.filter == nil {
@@ -71,12 +79,13 @@ func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (map[int
 	config := &queryProductConfig{
 		Store:  s,
 		filter: pg.NONE(),
+		limit:  1000,
 		rows:   make(map[interface{}]*Product),
 	}
 	for _, o := range opts {
 		o(config)
 	}
-	err := s.selectProduct(ctx, config.filter, func(row *Product) {
+	err := s.selectProduct(ctx, config, func(row *Product) {
 		config.rows[row.ProductID] = row
 		for _, cb := range config.cb {
 			cb(row)
@@ -94,15 +103,27 @@ func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (map[int
 	}
 	return config.rows, nil
 }
-func (s *TestStore) selectProduct(ctx context.Context, filter pg.Where, withRow func(*Product)) error {
-	where, vals := pg.GetWhereClause(filter, nil)
-	stmt, err := s.conn.PrepareContext(ctx, ` 
+func (s *TestStore) selectProduct(ctx context.Context, config *queryProductConfig, withRow func(*Product)) error {
+	base := 0
+	placeholders := func(base *int, length int) []interface{} {
+		arr := make([]interface{}, length)
+		for i := range arr {
+			*base++
+			arr[i] = fmt.Sprintf("$%d", *base)
+		}
+		return arr
+	}
+	where, vals := pg.GetWhereClause(config.filter, &base)
+	params := append([]interface{}{where}, placeholders(&base, 2)...)
+	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
 	SELECT "product_id", "product_name", "product_config" 
 	FROM "tbl_product"
-	`+where)
+	%s
+	LIMIT %s OFFSET %s`, params...))
 	if err != nil {
 		return err
 	}
+	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
 		return err
