@@ -85,7 +85,7 @@ func EmployeeWithManager(opts ...EmployeeOption) EmployeeOption {
 		config.optsManager = opts
 		config.cb = append(config.cb, func(row *Employee) {
 			// one-to-one
-			mapManager[row.Manager.EmployeeID] = row
+			mapManager[row.GetManager().EmployeeID] = row
 
 		})
 		config.optsManager = append(config.optsManager,

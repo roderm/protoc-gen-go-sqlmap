@@ -58,6 +58,12 @@ func (p *SqlGenerator) loadFields() {
 					Order:      f.Desc.Index(),
 					DbfkField:  ext.GetFk(),
 					Type:       f.Desc.Kind().String(),
+					Oneof: func() string {
+						if f.Desc.ContainingOneof() != nil {
+							return string(f.Desc.ContainingOneof().Name())
+						}
+						return ""
+					}(),
 				}
 
 				p.tables.MessageTables[string(msg.Desc.Name())].Cols[string(f.Desc.Name())] = field

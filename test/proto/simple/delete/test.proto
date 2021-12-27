@@ -6,7 +6,7 @@ import "proto/sqlgen/sqlgen.proto";
 
 option go_package = "github.com/roderm/protoc-gen-go-sqlmap/test/proto/simple/delete";
 message Employee {
-    option (sqlgen.table) = {name:"tbl_employee",crud:[D]};
+    option (sqlgen.table) = {name:"tbl_employee", crud:[D]};
     string Id = 1 [(sqlgen.col) = {pk: PK_AUTO, name: "employee_id" }];
     string Firstname = 2 [(sqlgen.col).name = "employee_firstname"];
     string Lastname = 3 [(sqlgen.col).name = "employee_lastname"];

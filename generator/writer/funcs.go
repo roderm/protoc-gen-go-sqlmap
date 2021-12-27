@@ -2,6 +2,7 @@ package writer
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -29,7 +30,7 @@ func getFullFieldName(f *types.Field) string {
 	if ok {
 		for _, c := range table.Cols {
 			if f.DbfkField == c.ColName && c.PK != sqlgen.PK_PK_UNSPECIFIED {
-				return f.MsgName + "." + strings.Title(c.MsgName)
+				return "Get" + f.MsgName + "()." + strings.Title(c.MsgName)
 			}
 		}
 	}
@@ -100,6 +101,9 @@ var TplFuncs = template.FuncMap{
 			// 	foreignKeys = append(foreignKeys, f)
 			// }
 		}
+		sort.Slice(foreignKeys, func(i, j int) bool {
+			return foreignKeys[i].MsgName < foreignKeys[j].MsgName
+		})
 		return foreignKeys
 	},
 	"HasPK": func(t *types.Table) bool {
@@ -136,7 +140,7 @@ var TplFuncs = template.FuncMap{
 	"getColumnNames": func(t *types.Table, separator string) string {
 		str := ""
 		for _, f := range t.GetOrderedCols() {
-			if (f.FK.Remote == nil || !f.Repeated) && len(f.ColName) > 0 {
+			if (f.FK.Remote == nil || !f.Repeated) && len(f.ColName) > 0 && f.Oneof == "" {
 				str = str + f.ColName + separator
 			}
 		}
@@ -145,7 +149,7 @@ var TplFuncs = template.FuncMap{
 	"getFieldNames": func(t *types.Table, separator string) string {
 		str := ""
 		for _, f := range t.GetOrderedCols() {
-			if (f.FK.Remote == nil || !f.Repeated) && len(f.ColName) > 0 {
+			if (f.FK.Remote == nil || !f.Repeated) && len(f.ColName) > 0 && f.Oneof == "" {
 				str = str + toPascalCase(f.MsgName) + separator
 			}
 		}
@@ -188,6 +192,9 @@ var TplFuncs = template.FuncMap{
 		// 	}
 		// }
 		// return strings.TrimSuffix(str, separator)
+	},
+	"Title": func(s string) string {
+		return strings.Title(s)
 	},
 	"GetInsertColNames": func(t *types.Table, separator string) string {
 		str := ""
