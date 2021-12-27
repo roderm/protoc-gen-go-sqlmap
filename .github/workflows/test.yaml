@@ -17,4 +17,4 @@ jobs:
       - uses: bufbuild/buf-setup-action@v0.6.0
       - run: make install  
       - name: run tests
-        run: make test
+        run: go test -run=.
