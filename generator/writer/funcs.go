@@ -2,6 +2,7 @@ package writer
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -100,6 +101,9 @@ var TplFuncs = template.FuncMap{
 			// 	foreignKeys = append(foreignKeys, f)
 			// }
 		}
+		sort.Slice(foreignKeys, func(i, j int) bool {
+			return foreignKeys[i].MsgName < foreignKeys[j].MsgName
+		})
 		return foreignKeys
 	},
 	"HasPK": func(t *types.Table) bool {

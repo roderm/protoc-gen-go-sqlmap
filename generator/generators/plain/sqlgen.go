@@ -3,6 +3,7 @@ package plain
 import (
 	// pb "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
+	"sort"
 	"strings"
 
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
@@ -136,6 +137,10 @@ func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 			}
 		`)
 
+		// sort to keep order
+		sort.Slice(tables, func(i, j int) bool {
+			return tables[i].MsgName < tables[j].MsgName
+		})
 		for _, table := range tables {
 			writer.WriteEncodings(g, table)
 			writer.WriteNestedSelectors(g, table)

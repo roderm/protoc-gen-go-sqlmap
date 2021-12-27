@@ -14,6 +14,7 @@ message Product {
 	oneof Type {
 		Software software = 4 [(sqlgen.col) = {name: "product_id", fk: "tbl_software.product_id"}];
 		Hardware hardware = 5 [(sqlgen.col) = {name: "product_id", fk: "tbl_hardware.product_id"}];
+		Service service = 6 [(sqlgen.col) = {name: "product_id", fk: "tbl_service.product_id"}];
 	}		
 }
 
@@ -27,4 +28,9 @@ message Hardware {
 	option (sqlgen.table) = {name:"tbl_hardware",crud:[R]};
 	string ProductID = 1 [(sqlgen.col) = {pk: PK_MAN, name: "product_id"}];
 	string Serial = 2 [(sqlgen.col) = {name: "product_serial"}];
+}
+
+message Service {
+	option (sqlgen.table) = {name:"tbl_service",crud:[R]};
+	string ProductID = 1 [(sqlgen.col) = {pk: PK_MAN, name: "product_id"}];
 }
