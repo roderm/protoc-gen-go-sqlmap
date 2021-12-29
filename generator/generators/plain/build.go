@@ -21,7 +21,7 @@ func (p *SqlGenerator) loadTables() {
 			}
 			p.tables.MessageTables[string(msg.Desc.Name())] = &types.Table{
 				GoPackageImport: string(protoFile.GoImportPath),
-				GoPackageName:   p.PackageImportName(protoFile.GeneratedFilenamePrefix),
+				GoPackageName:   string(protoFile.GoPackageName),
 				Engine:          "postgres",
 				StoreName:       p.StoreName(protoFile.GeneratedFilenamePrefix),
 				MsgName:         string(msg.Desc.Name()),

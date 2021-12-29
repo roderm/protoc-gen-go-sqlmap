@@ -66,12 +66,6 @@ func (p *SqlGenerator) SQLDialect() string {
 	return "postgres"
 }
 
-func (p *SqlGenerator) PackageImportName(filename string) string {
-	path := strings.Split(filename, "/")
-	file := strings.Split(path[len(path)-1], ".")
-
-	return file[0]
-}
 func (p *SqlGenerator) StoreName(filename string) string {
 	path := strings.Split(filename, "/")
 	file := strings.Split(path[len(path)-1], ".")
