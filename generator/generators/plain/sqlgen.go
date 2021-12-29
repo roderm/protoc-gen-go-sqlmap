@@ -1,8 +1,6 @@
 package plain
 
 import (
-	// pb "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-
 	"sort"
 	"strings"
 
@@ -13,29 +11,11 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
-type pk string
-
-const (
-	pkNone = ""
-	pkAuto = "auto"
-	pkMan  = "man"
-)
-
-// func init() {
-// 	generator.RegisterPlugin(New())
-// }
-
 type SqlGenerator struct {
 	plugin         *protogen.Plugin
 	messages       map[string]struct{}
-	currentFile    string
 	currentPackage string
 	tables         *types.TableMessages
-	// *generator.Generator
-	// generator.PluginImports
-	// file       *generator.FileDescriptor
-	// localName  string
-	// atleastOne bool
 }
 
 func New(opts protogen.Options, request *pluginpb.CodeGeneratorRequest) (*SqlGenerator, error) {
@@ -52,15 +32,10 @@ func New(opts protogen.Options, request *pluginpb.CodeGeneratorRequest) (*SqlGen
 	}
 	return gen, nil
 }
+
 func (p *SqlGenerator) Name() string {
 	return "sqlmap"
 }
-
-// Init is called once after data structures are built but before
-// code generation begins.
-// func (p *SqlGenerator) Init(g *generator.Generator) {
-// 	p.Generator = g
-// }
 
 func (p *SqlGenerator) SQLDialect() string {
 	return "postgres"
@@ -85,8 +60,6 @@ func hasOperation(tbl *sqlgen.Table, op sqlgen.OPERATION) bool {
 	}
 	return false
 }
-
-var genFileMap = make(map[string]*protogen.GeneratedFile)
 
 func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 	p.loadTables()
