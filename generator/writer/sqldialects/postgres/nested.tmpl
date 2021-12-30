@@ -42,7 +42,20 @@ func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ PackagePrefix $f.Table $f.FK
 		config.load{{ $f.MsgName }} = true
 		config.opts{{ $f.MsgName }} = opts
 		config.cb = append(config.cb, func(row *{{ $.MsgName }}) {
+			{{- if IsReverseFK $f }}
+			// Reverse
+			{{- end }}
+			{{- if $f.Repeated }}
+			// Repeated
 			map{{ $f.MsgName }}[row.Get{{ GetPKName $ }}()] = row
+			{{- else if $f.IsMessage}}
+			// Message
+			if row.Get{{ $f.MsgName }}() != nil {
+				map{{ $f.MsgName }}[row.{{ getFullFieldName $f }}] = row
+			} else {
+			    map{{ $f.MsgName }}[row.Get{{ GetPKName $ }}()] = row
+			}
+			{{- end }}
 		})
 		config.opts{{ $f.MsgName }} = append(config.opts{{ $f.MsgName }}, 
 			{{ PackagePrefix $f.Table $f.FK.Remote.Table }}{{ $f.FK.Remote.Table.MsgName }}OnRow(func(row *{{ PackagePrefix $f.Table $f.FK.Remote.Table }}{{ $f.FK.Remote.Table.MsgName }}) {
