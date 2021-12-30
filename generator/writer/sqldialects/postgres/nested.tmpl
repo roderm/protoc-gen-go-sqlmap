@@ -44,10 +44,13 @@ func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ PackagePrefix $f.Table $f.FK
 		config.cb = append(config.cb, func(row *{{ $.MsgName }}) {
 			{{if $f.Repeated }} // repeated
 				map{{ $f.MsgName }}[row.Get{{ GetPKName $ }}()] = row
-			{{ else if ne $f.Oneof "" }}
+			{{ else if $f.IsMessage }} // message
+			    map{{ $f.MsgName }}[row.{{ getFullFieldName $f }}] = row
+			{{ else if ne $f.Oneof "" }} // is oneof
 				map{{ $f.MsgName }}[row.Get{{ GetPKName $ }}()] = row
 			{{else}} // one-to-one
-				map{{ $f.MsgName }}[row.{{ getFullFieldName $f }}] = row
+				// map{{ $f.MsgName }}[row.{{ getFullFieldName $f }}] = row
+				map{{ $f.MsgName }}[row.Get{{ GetPKName $ }}()] = row
 			{{end}}
 		})
 		config.opts{{ $f.MsgName }} = append(config.opts{{ $f.MsgName }}, 

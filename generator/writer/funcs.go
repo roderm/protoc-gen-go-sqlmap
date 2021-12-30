@@ -30,11 +30,11 @@ func getFullFieldName(f *types.Field) string {
 	if ok {
 		for _, c := range table.Cols {
 			if f.DbfkField == c.ColName && c.PK != sqlgen.PK_PK_UNSPECIFIED {
-				return "Get" + f.MsgName + "()." + strings.Title(c.MsgName)
+				return fmt.Sprintf("Get%s().Get%s()", f.MsgName, toPascalCase(c.MsgName))
 			}
 		}
 	}
-	return f.MsgName
+	return fmt.Sprintf("Get%s()", f.MsgName)
 }
 func GetType(f *types.Field) string {
 	switch f.Type {
@@ -194,7 +194,7 @@ var TplFuncs = template.FuncMap{
 		// return strings.TrimSuffix(str, separator)
 	},
 	"Title": func(s string) string {
-		return strings.Title(s)
+		return toPascalCase(s)
 	},
 	"GetInsertColNames": func(t *types.Table, separator string) string {
 		str := ""

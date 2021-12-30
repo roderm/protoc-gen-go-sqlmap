@@ -3,6 +3,7 @@ package plain
 import (
 	"strings"
 
+	"github.com/iancoleman/strcase"
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
 	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
 	"google.golang.org/protobuf/proto"
@@ -50,7 +51,7 @@ func (p *SqlGenerator) loadFields() {
 				field := &types.Field{
 					ColName:    ext.GetName(),
 					Table:      p.tables.MessageTables[string(msg.Desc.Name())],
-					MsgName:    strings.Title(string(f.Desc.Name())),
+					MsgName:    strcase.ToCamel(string(f.Desc.Name())),
 					Repeated:   f.Desc.IsList(),
 					IsMessage:  f.Desc.Message() != nil,
 					Extensions: make(map[string]interface{}),

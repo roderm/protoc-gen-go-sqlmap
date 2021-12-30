@@ -58,12 +58,12 @@ func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, config *que
 	%s
 	LIMIT %s OFFSET %s`, params...))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed preparing query in 'select{{ .MsgName }}': %s", err)
 	}
 	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed executing query in 'select{{ .MsgName }}' (with %+v) : %s", vals, err)
 	}
 	defer cursor.Close()
 	for cursor.Next() {
