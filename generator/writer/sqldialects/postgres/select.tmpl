@@ -40,30 +40,37 @@ func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgN
 	}
 	return config.rows, nil
 }
-func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, config *query{{ .MsgName  }}Config, withRow func(*{{ .MsgName  }})) error {
+
+func (s *{{ .StoreName }}) Get{{ .MsgName }}SelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
 	base := 0
-	placeholders := func(base *int, length int) []interface{} {
-		arr := make([]interface{}, length)
-		for i := range arr {
-			*base++
-			arr[i] = fmt.Sprintf("$%d", *base)
-		}
-		return arr
+	where, vals := pg.GetWhereClause(filter, &base)
+	tpl := fmt.Sprintf(`
+		SELECT "{{ getColumnNames .  "\", \"" }}"
+		FROM "{{ .Name }}"
+		%s`, where)
+
+	if limit > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
+		vals = append(vals, limit)
 	}
-	where, vals := pg.GetWhereClause(config.filter, &base)
-	params := append([]interface{}{where}, placeholders(&base, 2)...)
-	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
-	SELECT "{{ getColumnNames .  "\", \"" }}" 
-	FROM "{{ .Name }}"
-	%s
-	LIMIT %s OFFSET %s`, params...))
+	if start > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
+		vals = append(vals, start)
+	}
+	return tpl, vals
+}
+
+func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, config *query{{ .MsgName  }}Config, withRow func(*{{ .MsgName  }})) error {
+    query, vals := s.Get{{ .MsgName }}SelectSqlString(config.filter, config.limit, config.start)
+	stmt, err := s.conn.PrepareContext(ctx, query)
 	if err != nil {
-		return fmt.Errorf("failed preparing query in 'select{{ .MsgName }}': %s", err)
+		return fmt.Errorf("failed preparing '%s' query in 'select{{ .MsgName }}': %s", query, err)
 	}
-	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
-		return fmt.Errorf("failed executing query in 'select{{ .MsgName }}' (with %+v) : %s", vals, err)
+		return fmt.Errorf("failed executing query '%s' in 'select{{ .MsgName }}' (with %+v) : %s", query, vals, err)
 	}
 	defer cursor.Close()
 	for cursor.Next() {
