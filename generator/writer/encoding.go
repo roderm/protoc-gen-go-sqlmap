@@ -40,7 +40,7 @@ func (m *{{ .MsgName }}) GetIdentifier() interface{} {
 `
 
 func writeEncodings(p Printer) *template.Template {
-	funcs := GetTemplateFuns(p)
+	funcs := GetTemplateFuns()
 	tpl, err := template.New("SQLEncodings").Funcs(funcs).Parse(structEncoding)
 	if err != nil {
 		panic(err)

@@ -13,6 +13,17 @@ import (
 
 var f embed.FS
 
+func getTemplate(engine, filename string) *template.Template {
+	tplContent, err := f.ReadFile(fmt.Sprintf("sqldialects/%s/%s.go.tpl", engine, filename))
+	if err != nil {
+		panic(err)
+	}
+	tpl, err := template.New(filename).Funcs(GetTemplateFuns()).Parse(string(tplContent))
+	if err != nil {
+		panic(err)
+	}
+	return tpl
+}
 func GenerateImport(name string, importPath string, g *protogen.GeneratedFile) string {
 	return g.QualifiedGoIdent(protogen.GoIdent{
 		GoName:       name,
@@ -21,75 +32,39 @@ func GenerateImport(name string, importPath string, g *protogen.GeneratedFile) s
 }
 
 func WriteQueries(g Printer, m *types.Table) {
-	tplContent, err := f.ReadFile(fmt.Sprintf("sqldialects/%s/select.tmpl", m.Engine))
-	if err != nil {
-		panic(err)
-	}
-	tpl, err := template.New("Selects").Funcs(GetTemplateFuns(g)).Parse(string(tplContent))
-	if err != nil {
-		panic(err)
-	}
-	err = tpl.Execute(g, m)
+	err := getTemplate(m.Engine, "select").Execute(g, m)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func WriteInsertes(g Printer, m *types.Table) {
-	tplContent, err := f.ReadFile(fmt.Sprintf("sqldialects/%s/insert.tmpl", m.Engine))
-	if err != nil {
-		panic(err)
-	}
-	tpl, err := template.New("Inserts").Funcs(GetTemplateFuns(g)).Parse(string(tplContent))
-	if err != nil {
-		panic(err)
-	}
-	err = tpl.Execute(g, m)
+	err := getTemplate(m.Engine, "insert").Execute(g, m)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func WriteNestedSelectors(g Printer, m *types.Table) {
-	tplContent, err := f.ReadFile(fmt.Sprintf("sqldialects/%s/nested.tmpl", m.Engine))
+	err := getTemplate(m.Engine, "nested").Execute(g, m)
 	if err != nil {
 		panic(err)
 	}
-	tpl, err := template.New("Nested").Funcs(GetTemplateFuns(g)).Parse(string(tplContent))
-	if err != nil {
-		panic(err)
-	}
-	err = tpl.Execute(g, m)
+	err = getTemplate(m.Engine, "subloader").Execute(g, m)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func WriteUpdates(g Printer, m *types.Table) {
-	tplContent, err := f.ReadFile(fmt.Sprintf("sqldialects/%s/update.tmpl", m.Engine))
-	if err != nil {
-		panic(err)
-	}
-	tpl, err := template.New("Update").Funcs(GetTemplateFuns(g)).Parse(string(tplContent))
-	if err != nil {
-		panic(err)
-	}
-	err = tpl.Execute(g, m)
+	err := getTemplate(m.Engine, "update").Execute(g, m)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func WriteDeletes(g Printer, m *types.Table) {
-	tplContent, err := f.ReadFile(fmt.Sprintf("sqldialects/%s/delete.tmpl", m.Engine))
-	if err != nil {
-		panic(err)
-	}
-	tpl, err := template.New("Delete").Funcs(GetTemplateFuns(g)).Parse(string(tplContent))
-	if err != nil {
-		panic(err)
-	}
-	err = tpl.Execute(g, m)
+	err := getTemplate(m.Engine, "delete").Execute(g, m)
 	if err != nil {
 		panic(err)
 	}

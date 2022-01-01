@@ -1,4 +1,4 @@
-{{ if .Create }}
+{{ if .Config.Create }}
 func (m *{{ .MsgName  }}) Insert(s *{{ .StoreName }}, ctx context.Context) (error) {
 	ins := pg.NewInsert()
 	ins.Add(m.{{ GetInsertFieldNames .  ", m." }})

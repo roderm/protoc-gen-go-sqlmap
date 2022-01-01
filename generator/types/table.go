@@ -2,6 +2,7 @@ package types
 
 import (
 	"sort"
+	"strings"
 
 	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
 )
@@ -18,14 +19,23 @@ type Table struct {
 	Name            string
 	MsgName         string
 	// desc   *generator.Descriptor
-	Cols   map[string]*Field
+	Cols map[string]*Field
+	// JSONB  bool
+	// Create bool
+	// Read   bool
+	// Update bool
+	// Delete bool
+
+	Config  TableConfig
+	Imports map[string]string
+}
+
+type TableConfig struct {
 	JSONB  bool
 	Create bool
 	Read   bool
 	Update bool
 	Delete bool
-
-	Imports map[string]string
 }
 
 func (tm *Table) GetColumnByMessageName(message string) (*Field, bool) {

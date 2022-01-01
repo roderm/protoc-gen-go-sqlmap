@@ -1,4 +1,4 @@
-{{ if .Update }}
+{{ if .Config.Update }}
 func (m *{{ .MsgName  }}) Update(s *{{ .StoreName }}, ctx context.Context, conf *pg.UpdateSQL) (error) {
 	base := 1
 	if conf == nil {

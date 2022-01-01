@@ -1,4 +1,4 @@
-{{ if .Delete }}
+{{ if .Config.Delete }}
 func (m *{{ .MsgName  }}) Delete(s *{{ .StoreName }}, ctx context.Context) (error) {
 
 	stmt, err := s.conn.PrepareContext(ctx, `

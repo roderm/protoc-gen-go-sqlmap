@@ -1,4 +1,4 @@
-{{ if .Read }}
+{{ if .Config.Read }}
 func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgName  }}Option) (map[interface{}]*{{ .MsgName  }}, error) {
 	config := &query{{ .MsgName  }}Config{
 		Store: s,
@@ -74,7 +74,7 @@ func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, config *que
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		row := new({{ .MsgName  }})
+		row := &{{ .MsgName }}{}
 		err := cursor.Scan( &row.{{ getFieldNames . ", &row." }} )
 		if err != nil {
 			return err

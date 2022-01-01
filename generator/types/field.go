@@ -23,23 +23,27 @@ func init() {
 }
 
 type Field struct {
-	// desc      *descriptor.FieldDescriptorProto
-	Table     *Table
-	ColName   string
-	Type      string
-	MsgName   string
-	PK        sqlgen.PK
-	needQuery bool
-	Oneof     string
+	Table   *Table
+	ColName string
+	Type    string
+	MsgName string
+	PK      sqlgen.PK
+	Oneof   string
 	// dbfk      string
-	DbfkField  string
-	DbfkTable  string
-	FK         FieldFK
-	Order      int
-	Repeated   bool
-	IsMessage  bool
-	Extensions map[string]interface{}
-	Column     sqlgen.Column
+	DbfkField string
+	DbfkTable string
+	FK        FieldFK
+
+	// FkOut []Field
+	// FkIn  []Field
+
+	Order       int
+	IsRepeated  bool
+	IsMessage   bool
+	TypeMessage string
+	Extensions  map[string]interface{}
+	Column      sqlgen.Column
+}
 }
 
 type FieldFK struct {

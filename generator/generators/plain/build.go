@@ -25,15 +25,17 @@ func (p *SqlGenerator) loadTables() {
 				GoPackageName:   string(protoFile.GoPackageName),
 				Engine:          "postgres",
 				StoreName:       p.StoreName(protoFile.GeneratedFilenamePrefix),
-				MsgName:         string(msg.Desc.Name()),
+				MsgName:         strcase.ToCamel(string(msg.Desc.Name())),
 				Name:            ext.GetName(),
-				JSONB:           *jsonb,
-				Create:          hasOperation(ext, sqlgen.OPERATION_C),
-				Read:            hasOperation(ext, sqlgen.OPERATION_R),
-				Update:          hasOperation(ext, sqlgen.OPERATION_U),
-				Delete:          hasOperation(ext, sqlgen.OPERATION_D),
-				Cols:            make(map[string]*types.Field),
-				Imports:         make(map[string]string),
+				Config: types.TableConfig{
+					JSONB:  *jsonb,
+					Create: hasOperation(ext, sqlgen.OPERATION_C),
+					Read:   hasOperation(ext, sqlgen.OPERATION_R),
+					Update: hasOperation(ext, sqlgen.OPERATION_U),
+					Delete: hasOperation(ext, sqlgen.OPERATION_D),
+				},
+				Cols:    make(map[string]*types.Field),
+				Imports: make(map[string]string),
 			}
 		}
 	}
@@ -47,18 +49,19 @@ func (p *SqlGenerator) loadFields() {
 				if !ok || ext == nil {
 					continue
 				}
-
 				field := &types.Field{
-					ColName:    ext.GetName(),
-					Table:      p.tables.MessageTables[string(msg.Desc.Name())],
-					MsgName:    strcase.ToCamel(string(f.Desc.Name())),
-					Repeated:   f.Desc.IsList(),
-					IsMessage:  f.Desc.Message() != nil,
-					Extensions: make(map[string]interface{}),
-					PK:         ext.GetPk(),
-					Order:      f.Desc.Index(),
-					DbfkField:  ext.GetFk(),
-					Type:       f.Desc.Kind().String(),
+					ColName: ext.GetName(),
+					Table:   p.tables.MessageTables[string(msg.Desc.Name())],
+
+					MsgName:     strcase.ToCamel(string(f.Desc.Name())),
+					IsRepeated:  f.Desc.IsList(),
+					IsMessage:   f.Desc.Message() != nil,
+					Extensions:  make(map[string]interface{}),
+					PK:          ext.GetPk(),
+					Order:       f.Desc.Index(),
+					DbfkField:   ext.GetFk(),
+					Type:        f.Desc.Kind().String(),
+					TypeMessage: strcase.ToCamel(string(f.Desc.ContainingMessage().Name())),
 					Oneof: func() string {
 						if f.Desc.ContainingOneof() != nil {
 							return string(f.Desc.ContainingOneof().Name())

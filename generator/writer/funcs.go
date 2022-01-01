@@ -52,7 +52,7 @@ func GetType(f *types.Field) string {
 	return f.Type
 }
 
-func GetTemplateFuns(p Printer) template.FuncMap {
+func GetTemplateFuns() template.FuncMap {
 	return TplFuncs
 }
 

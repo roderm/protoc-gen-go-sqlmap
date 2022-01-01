@@ -1,4 +1,4 @@
-{{ if .Read }}
+{{ if .Config.Read }}
 type query{{ .MsgName }}Config struct {
 	Store *{{ .StoreName }}
 	filter pg.Where 
@@ -45,7 +45,7 @@ func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ PackagePrefix $f.Table $f.FK
 			{{- if IsReverseFK $f }}
 			// Reverse
 			{{- end }}
-			{{- if $f.Repeated }}
+			{{- if $f.IsRepeated }}
 			// Repeated
 			map{{ $f.MsgName }}[row.Get{{ GetPKName $ }}()] = row
 			{{- else if $f.IsMessage}}
@@ -65,7 +65,7 @@ func {{ $.MsgName }}With{{ $f.MsgName }}(opts ...{{ PackagePrefix $f.Table $f.FK
 				}
 				{{end}}
 
-				{{if $f.Repeated }} // repeated
+				{{if $f.IsRepeated }} // repeated
 				if config.rows[row.{{ getFullFieldName $f.FK.Remote }}] != nil {
 					config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ $f.MsgName }} = append(config.rows[row.{{ getFullFieldName $f.FK.Remote }}].{{ $f.MsgName }}, row)
 				}
