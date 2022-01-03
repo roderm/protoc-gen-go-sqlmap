@@ -81,6 +81,7 @@ func (p *SqlGenerator) loadDependencies() {
 		for _, f := range tbl.Cols {
 			if f.DbfkField != "" {
 				fk := strings.Split(f.DbfkField, ".")
+				f.DbfkField = fk[1]
 				f.AddForeignKey(p.tables, fk[0], fk[1])
 			}
 

@@ -1,7 +1,7 @@
 {{ if .Config.Create }}
 func (m *{{ .MsgName  }}) Insert(s *{{ .StoreName }}, ctx context.Context) (error) {
 	ins := pg.NewInsert()
-	ins.Add(m.{{ GetInsertFieldNames .  ", m." }})
+	ins.Add({{ GetInsertFieldNames . "m" "," }})
 
 	stmt, err := s.conn.PrepareContext(ctx, `
 		INSERT INTO "{{ .Name }}" ( "{{ GetInsertColNames .  "\", \"" }}" )

@@ -3,14 +3,14 @@ func (m *{{ .MsgName  }}) Delete(s *{{ .StoreName }}, ctx context.Context) (erro
 
 	stmt, err := s.conn.PrepareContext(ctx, `
 	DELETE FROM "{{ .Name }}"
-	WHERE "{{ GetPKCol . }}" = $1
+	WHERE {{ GetPrimaryCols . }}
 	RETURNING "{{ getColumnNames . "\", \"" }}"
 		`)
 	if err != nil {
 		return err
 	}
 
-	cursor, err := stmt.QueryContext(ctx, m.{{ GetPKName . }})
+	cursor, err := stmt.QueryContext(ctx, {{GetPrimaryValues . "m"}})
 	if err != nil {
 		return err
 	}

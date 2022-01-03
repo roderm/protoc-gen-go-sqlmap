@@ -26,11 +26,14 @@ func GetPK(t *types.Table) *types.Field {
 }
 
 func getFullFieldName(f *types.Field) string {
-	table, ok := TableMessageStore.GetTableByTableName(f.Table.Name)
-	if ok {
-		for _, c := range table.Cols {
-			if f.DbfkField == c.ColName && c.PK != sqlgen.PK_PK_UNSPECIFIED {
-				return fmt.Sprintf("Get%s().Get%s()", f.MsgName, toPascalCase(c.MsgName))
+	if f.IsMessage {
+		table, ok := TableMessageStore.GetTableByTableName(f.Table.Name)
+		if ok {
+			for _, c := range table.Cols {
+				// && c.PK != sqlgen.PK_PK_UNSPECIFIED
+				if f.DbfkField == c.ColName {
+					return fmt.Sprintf("Get%s().Get%s()", f.MsgName, toPascalCase(c.MsgName))
+				}
 			}
 		}
 	}
@@ -75,14 +78,41 @@ func getInsertFields(t *types.Table) []*types.Field {
 		return false
 	}
 	for _, f := range t.GetOrderedCols() {
-		if f.PK == sqlgen.PK_PK_MAN || (f.PK != sqlgen.PK_PK_AUTO && !f.Repeated && len(f.ColName) > 0 && !inCols(f) && !isPK(f)) {
+		if f.PK == sqlgen.PK_PK_MAN || (f.PK != sqlgen.PK_PK_AUTO && !f.IsRepeated && len(f.ColName) > 0 && !inCols(f) && !isPK(f)) {
 			fields = append(fields, f)
 		}
 	}
 	return fields
 }
 
+func GetPrimaries(t *types.Table) []*types.Field {
+	cols := []*types.Field{}
+	for _, c := range t.GetOrderedCols() {
+		if c.PK != sqlgen.PK_PK_UNSPECIFIED {
+			cols = append(cols, c)
+		}
+	}
+	return cols
+}
+
 var TplFuncs = template.FuncMap{
+	"GetPrimaryBase": func(t *types.Table) int {
+		return len(GetPrimaries(t))
+	},
+	"GetPrimaryCols": func(t *types.Table) string {
+		names := []string{}
+		for i, n := range GetPrimaries(t) {
+			names = append(names, fmt.Sprintf("\"%s\" = $%d", n.ColName, i+1))
+		}
+		return strings.Join(names, " AND ")
+	},
+	"GetPrimaryValues": func(t *types.Table, obj string) string {
+		names := []string{}
+		for _, n := range GetPrimaries(t) {
+			names = append(names, fmt.Sprintf("%s.Get%s()", obj, n.MsgName))
+		}
+		return strings.Join(names, ", ")
+	},
 	"PackagePrefix": func(local *types.Table, remote *types.Table) string {
 		if local.GoPackageImport == remote.GoPackageImport {
 			return ""
@@ -90,16 +120,21 @@ var TplFuncs = template.FuncMap{
 		local.Imports[remote.GoPackageName] = remote.GoPackageImport
 		return fmt.Sprintf("%s.", remote.GoPackageName)
 	},
+	"GetMessageFields": func(t *types.Table) []*types.Field {
+		fields := []*types.Field{}
+		for _, f := range t.Cols {
+			if f.IsMessage {
+				fields = append(fields, f)
+			}
+		}
+		return fields
+	},
 	"SubQueries": func(t *types.Table) []*types.Field {
 		foreignKeys := []*types.Field{}
 		for _, f := range t.Cols {
-			// && f.desc.IsMessage()
 			if f.IsMessage && f.FK.Remote != nil {
 				foreignKeys = append(foreignKeys, f)
 			}
-			// if f.FK.Remote != nil && f.FK.Remote.Table.Read {
-			// 	foreignKeys = append(foreignKeys, f)
-			// }
 		}
 		sort.Slice(foreignKeys, func(i, j int) bool {
 			return foreignKeys[i].MsgName < foreignKeys[j].MsgName
@@ -111,6 +146,60 @@ var TplFuncs = template.FuncMap{
 	},
 	"GetPKCol": func(t *types.Table) string {
 		return GetPK(t).ColName
+	},
+	"RepeatedFKFieldGetter": func(t *types.Table, remote *types.Field) string {
+		for _, c := range t.Cols {
+			if c.ColName == remote.DbfkField {
+				return fmt.Sprintf("Get%s()", c.MsgName)
+			}
+		}
+		if remote.FK.Remote != nil {
+			for _, c := range remote.FK.Remote.Table.Cols {
+				if c.DbfkField == remote.ColName {
+					for _, f := range c.FK.Remote.Table.Cols {
+						if !f.IsRepeated && !f.IsMessage && f.ColName == c.DbfkField {
+							return fmt.Sprintf("Get%s()", f.MsgName)
+						}
+					}
+				}
+			}
+		}
+		return fmt.Sprintf("GetUnknown%s()", remote.MsgName)
+	},
+	"MessageFKFieldGetter": func(t *types.Table, remote *types.Field) string {
+		if remote.IsMessage {
+			fieldname := ""
+			for _, f := range remote.FK.Remote.Table.Cols {
+				if f.ColName == remote.DbfkField {
+					fieldname = f.MsgName
+				}
+			}
+			return fmt.Sprintf("Get%s().Get%s()", remote.MsgName, fieldname)
+		} else {
+			return fmt.Sprintf("Get%s()", remote.MsgName)
+		}
+	},
+	"MessageFKField": func(t *types.Table, remote *types.Field) string {
+		return fmt.Sprintf("Get%s()", remote.FK.Remote.MsgName)
+	},
+	"MessageFKItemField": func(t *types.Table, remote *types.Field) string {
+		for _, c := range t.Cols {
+			if c.ColName == remote.DbfkField {
+				return fmt.Sprintf("Get%s()", c.MsgName)
+			}
+		}
+		if remote.FK.Remote != nil {
+			for _, c := range remote.FK.Remote.Table.Cols {
+				if c.DbfkField == remote.ColName {
+					for _, f := range c.FK.Remote.Table.Cols {
+						if !f.IsRepeated && !f.IsMessage && f.ColName == c.DbfkField {
+							return fmt.Sprintf("Get%s()", f.MsgName)
+						}
+					}
+				}
+			}
+		}
+		return fmt.Sprintf("GetUnkown()/* %s => %s */", remote.MsgName, remote.DbfkField)
 	},
 	"GetPKName": func(t *types.Table) string {
 		pk := GetPK(t)
@@ -140,7 +229,7 @@ var TplFuncs = template.FuncMap{
 	"getColumnNames": func(t *types.Table, separator string) string {
 		str := ""
 		for _, f := range t.GetOrderedCols() {
-			if (f.FK.Remote == nil || !f.Repeated) && len(f.ColName) > 0 && f.Oneof == "" {
+			if (!f.IsMessage && !f.IsRepeated) && len(f.ColName) > 0 && f.Oneof == "" {
 				str = str + f.ColName + separator
 			}
 		}
@@ -149,49 +238,25 @@ var TplFuncs = template.FuncMap{
 	"getFieldNames": func(t *types.Table, separator string) string {
 		str := ""
 		for _, f := range t.GetOrderedCols() {
-			if (f.FK.Remote == nil || !f.Repeated) && len(f.ColName) > 0 && f.Oneof == "" {
+			if f.IsMessage || f.IsRepeated {
+				if f.FK.Remote != nil && f.FK.Remote.Table.Config.JSONB {
+					str = str + toPascalCase(f.MsgName) + separator
+					continue
+				}
+			}
+			if (!f.IsMessage && !f.IsRepeated) && len(f.ColName) > 0 && f.Oneof == "" {
 				str = str + toPascalCase(f.MsgName) + separator
 			}
 		}
 		return strings.TrimSuffix(str, separator)
 	},
 	"getFullFieldName": getFullFieldName,
-	"GetInsertFieldNames": func(t *types.Table, separator string) string {
-		str := ""
+	"GetInsertFieldNames": func(t *types.Table, obj string, separator string) string {
+		str := []string{}
 		for _, f := range getInsertFields(t) {
-			str = str + getFullFieldName(f) + separator
+			str = append(str, fmt.Sprintf("%s.Get%s()", obj, f.MsgName))
 		}
-		return strings.TrimSuffix(str, separator)
-		// str := ""
-		// cols := []string{}
-		// inCols := func(new string) bool {
-		// 	for _, c := range cols {
-		// 		if new == c {
-		// 			return true
-		// 		}
-		// 	}
-		// 	return false
-		// }
-		// for _, f := range t.GetOrderedCols() {
-		// 	if f.PK == sqlgen.PK_PK_MAN || (f.PK != sqlgen.PK_PK_AUTO && !f.Repeated && len(f.ColName) > 0 && !inCols(f.ColName)) {
-		// 		if f.IsMessage {
-		// 			tbl, ok := TableMessageStore.GetTableByTableName(f.DbfkTable)
-		// 			if !ok {
-		// 				continue
-		// 			}
-		// 			fld, ok := tbl.GetColumnByMessageName(f.FK.Remote.MsgName)
-		// 			if !ok {
-		// 				continue
-		// 			}
-
-		// 			str = str + GetFieldName(f) + "." + GetFieldName(fld) + separator
-		// 		} else {
-		// 			str = str + GetFieldName(f) + separator
-		// 			cols = append(cols, f.ColName)
-		// 		}
-		// 	}
-		// }
-		// return strings.TrimSuffix(str, separator)
+		return strings.Join(str, separator)
 	},
 	"Title": func(s string) string {
 		return toPascalCase(s)

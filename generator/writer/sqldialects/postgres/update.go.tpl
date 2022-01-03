@@ -1,6 +1,6 @@
 {{ if .Config.Update }}
 func (m *{{ .MsgName  }}) Update(s *{{ .StoreName }}, ctx context.Context, conf *pg.UpdateSQL) (error) {
-	base := 1
+	base := {{ GetPrimaryBase . }}
 	if conf == nil {
 		conf = &pg.UpdateSQL{
 			ValueMap: make(map[string]interface{}),
@@ -10,14 +10,14 @@ func (m *{{ .MsgName  }}) Update(s *{{ .StoreName }}, ctx context.Context, conf 
 	stmt, err := s.conn.PrepareContext(ctx, `
 	UPDATE {{ .Name }} 
 	SET ` + conf.String(&base) + `
-	WHERE "{{ GetPKCol . }}" = $1
+	WHERE {{ GetPrimaryCols . }}
 	RETURNING {{ getColumnNames . ", " }}
 		`)
 	if err != nil {
 		return err
 	}
 
-	cursor, err := stmt.QueryContext(ctx, append([]interface{}{ m.{{ GetPKName . }} }, conf.Values()...)... )
+	cursor, err := stmt.QueryContext(ctx, append([]interface{}{ {{ GetPrimaryValues . "m"}} }, conf.Values()...)... )
 	if err != nil {
 		return err
 	}
