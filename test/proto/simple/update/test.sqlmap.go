@@ -24,23 +24,6 @@ func NewTestStore(conn *sql.DB) *TestStore {
 	return &TestStore{conn}
 }
 
-func (m *Employee) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed %+v", value)
-	}
-	m.Id = string(buff)
-	return nil
-}
-
-func (m *Employee) Value() (driver.Value, error) {
-	return m.Id, nil
-}
-
-func (m *Employee) GetIdentifier() interface{} {
-	return m.Id
-}
-
 func (m *Employee) Update(s *TestStore, ctx context.Context, conf *pg.UpdateSQL) error {
 	base := 1
 	if conf == nil {
@@ -60,7 +43,7 @@ func (m *Employee) Update(s *TestStore, ctx context.Context, conf *pg.UpdateSQL)
 		return err
 	}
 
-	cursor, err := stmt.QueryContext(ctx, append([]interface{}{m.Id}, conf.Values()...)...)
+	cursor, err := stmt.QueryContext(ctx, append([]interface{}{m.GetId()}, conf.Values()...)...)
 	if err != nil {
 		return err
 	}

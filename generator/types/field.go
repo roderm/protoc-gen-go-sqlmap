@@ -44,11 +44,16 @@ type Field struct {
 	Extensions  map[string]interface{}
 	Column      sqlgen.Column
 }
+type MessageField struct {
+	Field
+	IsRepeated bool
+	Target     Field
 }
 
 type FieldFK struct {
 	// message  *generator.Descriptor
-	Remote   *Field
+	ChildOf  *Field
+	ParentOf []*Field
 	Relation FKRelation
 }
 
@@ -84,17 +89,20 @@ func gotField(table, col string) (*Field, bool) {
 // 	}
 // }
 
-func (f *Field) AddForeignKey(tm *TableMessages, table string, field string) {
-	t, ok := tm.GetTableByTableName(table)
-	if !ok {
-		panic(fmt.Sprintf("Table '%s' not found", table))
+func (f *Field) AddForeignKey(tm *TableMessages) {
+	if !f.IsMessage {
+		return
 	}
-	remoteField, ok := t.GetColumnByColumnName(field)
+	t, ok := tm.GetTableByTableName(f.DbfkTable)
 	if !ok {
-		panic(fmt.Sprintf("Column '%s' not found on table '%s'", field, table))
+		panic(fmt.Sprintf("Table '%s' not found", f.DbfkTable))
 	}
-	if f.FK.Remote != nil {
-		panic(fmt.Sprintf("Remote is already set %s", field))
+	remoteField, ok := t.GetFieldByColumn(f.DbfkField)
+	if !ok {
+		panic(fmt.Sprintf("Column '%s' not found on table '%s'", f.DbfkField, f.DbfkTable))
+	}
+	if f.FK.ChildOf != nil {
+		panic(fmt.Sprintf("Remote is already set %s", f.DbfkField))
 	}
 	if remoteField.Table == nil {
 		panic(fmt.Sprintf("Table is null! %s", remoteField.MsgName))
@@ -103,16 +111,77 @@ func (f *Field) AddForeignKey(tm *TableMessages, table string, field string) {
 		panic(fmt.Sprintf("Table is null! %s", f.MsgName))
 	}
 	relation := FK_RELATION_ONE_ONE
-	if f.Repeated {
+	if f.IsRepeated {
 		relation = FK_RELATION_MANY_ONE
 	}
 	f.FK = FieldFK{
-		Remote:   remoteField,
+		ChildOf:  remoteField,
 		Relation: int8(relation),
 	}
-	f.DbfkTable = table
-	f.DbfkField = field
 
+	f.Table.Joins = append(f.Table.Joins, &Join{
+		IsRepeated:        f.IsRepeated,
+		Target:            f,
+		Source:            remoteField,
+		TargetMessageName: f.Table.MsgName,
+		TargetFieldName:   f.MsgName,
+		TargetIsOneOf:     f.Oneof != "",
+		TargetOneOfField:  f.Oneof,
+		TargetSourceKeyField: func() string {
+			ChildIdField, ok := f.Table.GetFieldByColumn(f.ColName)
+			if !ok {
+				panic(fmt.Errorf("Table %s has no column %s (in ChildIdField for %s)", f.Table.Name, f.ColName, remoteField.MsgName))
+			}
+			if ChildIdField.IsMessage {
+				tbl, ok := tm.GetTableByTableName(ChildIdField.DbfkTable)
+				if !ok {
+					panic(fmt.Errorf("message %s not loaded", ChildIdField.DbfkTable))
+				}
+				idField, ok := tbl.GetFieldByColumn(ChildIdField.DbfkField)
+				if !ok {
+					panic(fmt.Errorf("Table %s has no column %s (in ChildIdField.IsMessage %s)", tbl.Name, ChildIdField.DbfkField, ChildIdField.MsgName))
+				}
+				if idField.Oneof != "" {
+					return fmt.Sprintf("Get%s().%s /* catched oneof %v */", ChildIdField.MsgName, "ID", idField)
+				}
+				return fmt.Sprintf("Get%s().%s", ChildIdField.MsgName, idField.MsgName)
+			} else {
+				return ChildIdField.MsgName
+			}
+		}(),
+		SourceTargetKeyField: func() string {
+			ParentIdField, ok := remoteField.Table.GetFieldByColumn(f.DbfkField)
+			if !ok {
+				panic(fmt.Errorf("Table %s has no column %s (in ParentIdField)", remoteField.Table.Name, f.DbfkField))
+			}
+			if ParentIdField.IsMessage {
+				tbl, ok := tm.GetTableByTableName(ParentIdField.DbfkTable)
+				if !ok {
+					panic(fmt.Errorf("message %s not loaded", ParentIdField.DbfkTable))
+				}
+				idField, ok := tbl.GetFieldByColumn(ParentIdField.DbfkField)
+				if !ok {
+					panic(fmt.Errorf("Table %s has no column %s (in ParentIdField.IsMessage)", tbl.Name, ParentIdField.DbfkField))
+				}
+				if idField.Oneof != "" {
+					return fmt.Sprintf("Get%s().%s /* catched oneof */", ParentIdField.MsgName, "ID")
+				}
+				return fmt.Sprintf("Get%s().%s", ParentIdField.MsgName, idField.MsgName)
+			} else {
+				return ParentIdField.MsgName
+			}
+		}(),
+		SourcePackagePrefix: func() string {
+			if f.Table.GoPackageImport == remoteField.Table.GoPackageImport {
+				return ""
+			}
+			f.Table.Imports[remoteField.Table.GoPackageName] = remoteField.Table.GoPackageImport
+			return fmt.Sprintf("%s.", remoteField.Table.GoPackageName)
+		}(),
+		SourceMessageName: remoteField.Table.MsgName,
+		SourceFieldName:   remoteField.MsgName,
+		SourceColumnName:  remoteField.ColName,
+	})
 }
 
 // func (f *Field) setFK(tm *TableMessages) {

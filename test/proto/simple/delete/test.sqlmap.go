@@ -24,23 +24,6 @@ func NewTestStore(conn *sql.DB) *TestStore {
 	return &TestStore{conn}
 }
 
-func (m *Employee) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed %+v", value)
-	}
-	m.Id = string(buff)
-	return nil
-}
-
-func (m *Employee) Value() (driver.Value, error) {
-	return m.Id, nil
-}
-
-func (m *Employee) GetIdentifier() interface{} {
-	return m.Id
-}
-
 func (m *Employee) Delete(s *TestStore, ctx context.Context) error {
 
 	stmt, err := s.conn.PrepareContext(ctx, `
@@ -52,7 +35,7 @@ func (m *Employee) Delete(s *TestStore, ctx context.Context) error {
 		return err
 	}
 
-	cursor, err := stmt.QueryContext(ctx, m.Id)
+	cursor, err := stmt.QueryContext(ctx, m.GetId())
 	if err != nil {
 		return err
 	}

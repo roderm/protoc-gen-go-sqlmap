@@ -18,16 +18,10 @@ type Table struct {
 	StoreName       string
 	Name            string
 	MsgName         string
-	// desc   *generator.Descriptor
-	Cols map[string]*Field
-	// JSONB  bool
-	// Create bool
-	// Read   bool
-	// Update bool
-	// Delete bool
-
-	Config  TableConfig
-	Imports map[string]string
+	Cols            map[string]*Field
+	Joins           []*Join
+	Config          TableConfig
+	Imports         map[string]string
 }
 
 type TableConfig struct {
@@ -43,10 +37,26 @@ func (tm *Table) GetColumnByMessageName(message string) (*Field, bool) {
 	return tbl, ok
 }
 
-func (tm *Table) GetColumnByColumnName(message string) (*Field, bool) {
-	for _, tbl := range tm.Cols {
-		if tbl.ColName == message {
-			return tbl, true
+func (tm *Table) GetFieldByColumn(message string) (*Field, bool) {
+	for _, field := range tm.Cols {
+		if field.ColName == message && !field.IsRepeated && field.Oneof == "" && !field.IsMessage {
+			return field, true
+		}
+	}
+	for _, field := range tm.Cols {
+		if field.ColName == message && !field.IsRepeated && field.Oneof == "" {
+			return field, true
+		}
+	}
+	return nil, false
+}
+func (tm *Table) SimpleFieldByColumn(message string) (*Field, bool) {
+	for _, field := range tm.Cols {
+		if field.IsRepeated || field.IsMessage {
+			continue
+		}
+		if field.ColName == message {
+			return field, true
 		}
 	}
 	return nil, false
@@ -112,7 +122,7 @@ func (t *Table) GetOrderedCols() []*Field {
 
 func (tm *TableMessages) GetTableByMessageName(tableName string) (*Table, bool) {
 	for _, tbl := range tm.MessageTables {
-		if tbl.MsgName == tableName {
+		if strings.ToLower(tbl.MsgName) == strings.ToLower(tableName) {
 			return tbl, true
 		}
 	}

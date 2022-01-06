@@ -24,23 +24,6 @@ func NewTestStore(conn *sql.DB) *TestStore {
 	return &TestStore{conn}
 }
 
-func (m *Hardware) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed %+v", value)
-	}
-	m.ProductID = string(buff)
-	return nil
-}
-
-func (m *Hardware) Value() (driver.Value, error) {
-	return m.ProductID, nil
-}
-
-func (m *Hardware) GetIdentifier() interface{} {
-	return m.ProductID
-}
-
 type queryHardwareConfig struct {
 	Store        *TestStore
 	filter       pg.Where
@@ -103,34 +86,41 @@ func (s *TestStore) Hardware(ctx context.Context, opts ...HardwareOption) (map[i
 	}
 	return config.rows, nil
 }
-func (s *TestStore) selectHardware(ctx context.Context, config *queryHardwareConfig, withRow func(*Hardware)) error {
+
+func (s *TestStore) GetHardwareSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
 	base := 0
-	placeholders := func(base *int, length int) []interface{} {
-		arr := make([]interface{}, length)
-		for i := range arr {
-			*base++
-			arr[i] = fmt.Sprintf("$%d", *base)
-		}
-		return arr
+	where, vals := pg.GetWhereClause(filter, &base)
+	tpl := fmt.Sprintf(`
+		SELECT "product_id", "product_serial"
+		FROM "tbl_hardware"
+		%s`, where)
+
+	if limit > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
+		vals = append(vals, limit)
 	}
-	where, vals := pg.GetWhereClause(config.filter, &base)
-	params := append([]interface{}{where}, placeholders(&base, 2)...)
-	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
-	SELECT "product_id", "product_serial" 
-	FROM "tbl_hardware"
-	%s
-	LIMIT %s OFFSET %s`, params...))
+	if start > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
+		vals = append(vals, start)
+	}
+	return tpl, vals
+}
+
+func (s *TestStore) selectHardware(ctx context.Context, config *queryHardwareConfig, withRow func(*Hardware)) error {
+	query, vals := s.GetHardwareSelectSqlString(config.filter, config.limit, config.start)
+	stmt, err := s.conn.PrepareContext(ctx, query)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed preparing '%s' query in 'selectHardware': %s", query, err)
 	}
-	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed executing query '%s' in 'selectHardware' (with %+v) : %s", query, vals, err)
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		row := new(Hardware)
+		row := &Hardware{}
 		err := cursor.Scan(&row.ProductID, &row.Serial)
 		if err != nil {
 			return err
@@ -138,23 +128,6 @@ func (s *TestStore) selectHardware(ctx context.Context, config *queryHardwareCon
 		withRow(row)
 	}
 	return nil
-}
-
-func (m *Product) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed %+v", value)
-	}
-	m.ProductID = string(buff)
-	return nil
-}
-
-func (m *Product) Value() (driver.Value, error) {
-	return m.ProductID, nil
-}
-
-func (m *Product) GetIdentifier() interface{} {
-	return m.ProductID
 }
 
 type queryProductConfig struct {
@@ -165,15 +138,12 @@ type queryProductConfig struct {
 	beforeReturn []func(map[interface{}]*Product) error
 	cb           []func(*Product)
 	rows         map[interface{}]*Product
-
-	loadHardware bool
-	optsHardware []HardwareOption
-
-	loadService bool
-	optsService []ServiceOption
-
 	loadSoftware bool
 	optsSoftware []SoftwareOption
+	loadHardware bool
+	optsHardware []HardwareOption
+	loadService  bool
+	optsService  []ServiceOption
 }
 
 type ProductOption func(*queryProductConfig)
@@ -200,99 +170,86 @@ func ProductOnRow(cb func(*Product)) ProductOption {
 	}
 }
 
-func ProductWithHardware(opts ...HardwareOption) ProductOption {
-	return func(config *queryProductConfig) {
-		mapHardware := make(map[interface{}]*Product)
-		config.loadHardware = true
-		config.optsHardware = opts
-		config.cb = append(config.cb, func(row *Product) {
-
-			mapHardware[row.GetProductID()] = row
-
-		})
-		config.optsHardware = append(config.optsHardware,
-			HardwareOnRow(func(row *Hardware) {
-
-				// one-to-one
-				item, ok := mapHardware[row.ProductID]
-				if ok && item != nil {
-					if config.rows[item.ProductID] != nil {
-						config.rows[item.ProductID].Type = &Product_Hardware{Hardware: row}
-					}
-				}
-
-			}),
-			HardwareFilter(pg.INCallabel("product_id", func() []interface{} {
-				ids := []interface{}{}
-				for id := range mapHardware {
-					ids = append(ids, id)
-				}
-				return ids
-			})),
-		)
-	}
-}
-func ProductWithService(opts ...ServiceOption) ProductOption {
-	return func(config *queryProductConfig) {
-		mapService := make(map[interface{}]*Product)
-		config.loadService = true
-		config.optsService = opts
-		config.cb = append(config.cb, func(row *Product) {
-
-			mapService[row.GetProductID()] = row
-
-		})
-		config.optsService = append(config.optsService,
-			ServiceOnRow(func(row *Service) {
-
-				// one-to-one
-				item, ok := mapService[row.ProductID]
-				if ok && item != nil {
-					if config.rows[item.ProductID] != nil {
-						config.rows[item.ProductID].Type = &Product_Service{Service: row}
-					}
-				}
-
-			}),
-			ServiceFilter(pg.INCallabel("product_id", func() []interface{} {
-				ids := []interface{}{}
-				for id := range mapService {
-					ids = append(ids, id)
-				}
-				return ids
-			})),
-		)
-	}
-}
 func ProductWithSoftware(opts ...SoftwareOption) ProductOption {
 	return func(config *queryProductConfig) {
-		mapSoftware := make(map[interface{}]*Product)
 		config.loadSoftware = true
-		config.optsSoftware = opts
+		parent := make(map[interface{}][]*Product)
 		config.cb = append(config.cb, func(row *Product) {
-
-			mapSoftware[row.GetProductID()] = row
-
+			child_key := row.ProductID
+			parent[child_key] = append(parent[child_key], row)
 		})
-		config.optsSoftware = append(config.optsSoftware,
-			SoftwareOnRow(func(row *Software) {
-
-				// one-to-one
-				item, ok := mapSoftware[row.ProductID]
-				if ok && item != nil {
-					if config.rows[item.ProductID] != nil {
-						config.rows[item.ProductID].Type = &Product_Software{Software: row}
+		config.optsSoftware = append(opts,
+			SoftwareFilter(
+				pg.INCallabel("product_id", func() []interface{} {
+					ids := []interface{}{}
+					for p := range parent {
+						ids = append(ids, p)
 					}
+					return ids
+				}),
+			),
+			SoftwareOnRow(func(row *Software) {
+				children := parent[row.ProductID]
+				for _, c := range children {
+					c.Type = &Product_Software{Software: row}
 				}
-
 			}),
-			SoftwareFilter(pg.INCallabel("product_id", func() []interface{} {
-				ids := []interface{}{}
-				for id := range mapSoftware {
-					ids = append(ids, id)
+		)
+	}
+}
+
+func ProductWithHardware(opts ...HardwareOption) ProductOption {
+	return func(config *queryProductConfig) {
+		config.loadHardware = true
+		parent := make(map[interface{}][]*Product)
+		config.cb = append(config.cb, func(row *Product) {
+			child_key := row.ProductID
+			parent[child_key] = append(parent[child_key], row)
+		})
+		config.optsHardware = append(opts,
+			HardwareFilter(
+				pg.INCallabel("product_id", func() []interface{} {
+					ids := []interface{}{}
+					for p := range parent {
+						ids = append(ids, p)
+					}
+					return ids
+				}),
+			),
+			HardwareOnRow(func(row *Hardware) {
+				children := parent[row.ProductID]
+				for _, c := range children {
+					c.Type = &Product_Hardware{Hardware: row}
 				}
-				return ids
-			})),
+			}),
+		)
+	}
+}
+
+func ProductWithService(opts ...ServiceOption) ProductOption {
+	return func(config *queryProductConfig) {
+		config.loadService = true
+		parent := make(map[interface{}][]*Product)
+		config.cb = append(config.cb, func(row *Product) {
+			child_key := row.ProductID
+			parent[child_key] = append(parent[child_key], row)
+		})
+		config.optsService = append(opts,
+			ServiceFilter(
+				pg.INCallabel("product_id", func() []interface{} {
+					ids := []interface{}{}
+					for p := range parent {
+						ids = append(ids, p)
+					}
+					return ids
+				}),
+			),
+			ServiceOnRow(func(row *Service) {
+				children := parent[row.ProductID]
+				for _, c := range children {
+					c.Type = &Product_Service{Service: row}
+				}
+			}),
 		)
 	}
 }
@@ -355,34 +312,41 @@ func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (map[int
 	}
 	return config.rows, nil
 }
-func (s *TestStore) selectProduct(ctx context.Context, config *queryProductConfig, withRow func(*Product)) error {
+
+func (s *TestStore) GetProductSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
 	base := 0
-	placeholders := func(base *int, length int) []interface{} {
-		arr := make([]interface{}, length)
-		for i := range arr {
-			*base++
-			arr[i] = fmt.Sprintf("$%d", *base)
-		}
-		return arr
+	where, vals := pg.GetWhereClause(filter, &base)
+	tpl := fmt.Sprintf(`
+		SELECT "product_id", "product_name", "product_type"
+		FROM "tbl_product"
+		%s`, where)
+
+	if limit > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
+		vals = append(vals, limit)
 	}
-	where, vals := pg.GetWhereClause(config.filter, &base)
-	params := append([]interface{}{where}, placeholders(&base, 2)...)
-	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
-	SELECT "product_id", "product_name", "product_type" 
-	FROM "tbl_product"
-	%s
-	LIMIT %s OFFSET %s`, params...))
+	if start > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
+		vals = append(vals, start)
+	}
+	return tpl, vals
+}
+
+func (s *TestStore) selectProduct(ctx context.Context, config *queryProductConfig, withRow func(*Product)) error {
+	query, vals := s.GetProductSelectSqlString(config.filter, config.limit, config.start)
+	stmt, err := s.conn.PrepareContext(ctx, query)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed preparing '%s' query in 'selectProduct': %s", query, err)
 	}
-	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed executing query '%s' in 'selectProduct' (with %+v) : %s", query, vals, err)
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		row := new(Product)
+		row := &Product{}
 		err := cursor.Scan(&row.ProductID, &row.ProductName, &row.ProductType)
 		if err != nil {
 			return err
@@ -390,23 +354,6 @@ func (s *TestStore) selectProduct(ctx context.Context, config *queryProductConfi
 		withRow(row)
 	}
 	return nil
-}
-
-func (m *Service) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed %+v", value)
-	}
-	m.ProductID = string(buff)
-	return nil
-}
-
-func (m *Service) Value() (driver.Value, error) {
-	return m.ProductID, nil
-}
-
-func (m *Service) GetIdentifier() interface{} {
-	return m.ProductID
 }
 
 type queryServiceConfig struct {
@@ -471,34 +418,41 @@ func (s *TestStore) Service(ctx context.Context, opts ...ServiceOption) (map[int
 	}
 	return config.rows, nil
 }
-func (s *TestStore) selectService(ctx context.Context, config *queryServiceConfig, withRow func(*Service)) error {
+
+func (s *TestStore) GetServiceSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
 	base := 0
-	placeholders := func(base *int, length int) []interface{} {
-		arr := make([]interface{}, length)
-		for i := range arr {
-			*base++
-			arr[i] = fmt.Sprintf("$%d", *base)
-		}
-		return arr
+	where, vals := pg.GetWhereClause(filter, &base)
+	tpl := fmt.Sprintf(`
+		SELECT "product_id"
+		FROM "tbl_service"
+		%s`, where)
+
+	if limit > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
+		vals = append(vals, limit)
 	}
-	where, vals := pg.GetWhereClause(config.filter, &base)
-	params := append([]interface{}{where}, placeholders(&base, 2)...)
-	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
-	SELECT "product_id" 
-	FROM "tbl_service"
-	%s
-	LIMIT %s OFFSET %s`, params...))
+	if start > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
+		vals = append(vals, start)
+	}
+	return tpl, vals
+}
+
+func (s *TestStore) selectService(ctx context.Context, config *queryServiceConfig, withRow func(*Service)) error {
+	query, vals := s.GetServiceSelectSqlString(config.filter, config.limit, config.start)
+	stmt, err := s.conn.PrepareContext(ctx, query)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed preparing '%s' query in 'selectService': %s", query, err)
 	}
-	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed executing query '%s' in 'selectService' (with %+v) : %s", query, vals, err)
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		row := new(Service)
+		row := &Service{}
 		err := cursor.Scan(&row.ProductID)
 		if err != nil {
 			return err
@@ -506,23 +460,6 @@ func (s *TestStore) selectService(ctx context.Context, config *queryServiceConfi
 		withRow(row)
 	}
 	return nil
-}
-
-func (m *Software) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed %+v", value)
-	}
-	m.ProductID = string(buff)
-	return nil
-}
-
-func (m *Software) Value() (driver.Value, error) {
-	return m.ProductID, nil
-}
-
-func (m *Software) GetIdentifier() interface{} {
-	return m.ProductID
 }
 
 type querySoftwareConfig struct {
@@ -587,34 +524,41 @@ func (s *TestStore) Software(ctx context.Context, opts ...SoftwareOption) (map[i
 	}
 	return config.rows, nil
 }
-func (s *TestStore) selectSoftware(ctx context.Context, config *querySoftwareConfig, withRow func(*Software)) error {
+
+func (s *TestStore) GetSoftwareSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
 	base := 0
-	placeholders := func(base *int, length int) []interface{} {
-		arr := make([]interface{}, length)
-		for i := range arr {
-			*base++
-			arr[i] = fmt.Sprintf("$%d", *base)
-		}
-		return arr
+	where, vals := pg.GetWhereClause(filter, &base)
+	tpl := fmt.Sprintf(`
+		SELECT "product_id", "product_version"
+		FROM "tbl_software"
+		%s`, where)
+
+	if limit > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
+		vals = append(vals, limit)
 	}
-	where, vals := pg.GetWhereClause(config.filter, &base)
-	params := append([]interface{}{where}, placeholders(&base, 2)...)
-	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
-	SELECT "product_id", "product_version" 
-	FROM "tbl_software"
-	%s
-	LIMIT %s OFFSET %s`, params...))
+	if start > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
+		vals = append(vals, start)
+	}
+	return tpl, vals
+}
+
+func (s *TestStore) selectSoftware(ctx context.Context, config *querySoftwareConfig, withRow func(*Software)) error {
+	query, vals := s.GetSoftwareSelectSqlString(config.filter, config.limit, config.start)
+	stmt, err := s.conn.PrepareContext(ctx, query)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed preparing '%s' query in 'selectSoftware': %s", query, err)
 	}
-	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed executing query '%s' in 'selectSoftware' (with %+v) : %s", query, vals, err)
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		row := new(Software)
+		row := &Software{}
 		err := cursor.Scan(&row.ProductID, &row.Version)
 		if err != nil {
 			return err

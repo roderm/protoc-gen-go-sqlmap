@@ -1,0 +1,32 @@
+syntax="proto3";
+
+package read;
+
+import "proto/sqlgen/sqlgen.proto";
+
+option go_package = "github.com/roderm/protoc-gen-go-sqlmap/test/twoway/twoway";
+
+message Player {
+	option (sqlgen.table) = { name:"tbl_player",crud:[R] };
+	int64 player_id = 1 [(sqlgen.col) = {name:"id", pk: PK_AUTO}];
+	string name = 2 [(sqlgen.col) = {name:"name"}];
+	int32 number = 3 [(sqlgen.col) = {name:"number"}];
+	Team team = 10 [(sqlgen.col) = {name:"team", fk:"tbl_team.id"}];
+}
+message Team {
+	option (sqlgen.table) = { name:"tbl_team",crud:[R] };
+	int64 team_id = 1 [(sqlgen.col) = {name:"id", pk: PK_AUTO}];
+	string league = 2 [(sqlgen.col) = {name:"league"}];
+
+	repeated Player players = 10 [(sqlgen.col) = {name:"id", fk:"tbl_player.id"}];
+}
+
+message Match {
+	option (sqlgen.table) = { name:"tbl_match",crud:[R] };
+	int64 match_id = 1 [(sqlgen.col) = {name:"id", pk: PK_AUTO}];
+	string date = 2 [(sqlgen.col) = {name:"date"}];
+	Team home = 10 [(sqlgen.col) = {name:"home", fk:"tbl_team.id"}];
+	Team guest = 11 [(sqlgen.col) = {name:"guest", fk:"tbl_team.id"}];
+	int32 home_score = 20 [(sqlgen.col) = {name:"home_score"}];
+	int32 guest_score = 21 [(sqlgen.col) = {name:"guest_score"}];
+}

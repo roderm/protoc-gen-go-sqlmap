@@ -27,6 +27,7 @@ func (p *SqlGenerator) loadTables() {
 				StoreName:       p.StoreName(protoFile.GeneratedFilenamePrefix),
 				MsgName:         strcase.ToCamel(string(msg.Desc.Name())),
 				Name:            ext.GetName(),
+				Joins:           []*types.Join{},
 				Config: types.TableConfig{
 					JSONB:  *jsonb,
 					Create: hasOperation(ext, sqlgen.OPERATION_C),
@@ -49,25 +50,39 @@ func (p *SqlGenerator) loadFields() {
 				if !ok || ext == nil {
 					continue
 				}
+
 				field := &types.Field{
 					ColName: ext.GetName(),
 					Table:   p.tables.MessageTables[string(msg.Desc.Name())],
-
-					MsgName:     strcase.ToCamel(string(f.Desc.Name())),
-					IsRepeated:  f.Desc.IsList(),
-					IsMessage:   f.Desc.Message() != nil,
-					Extensions:  make(map[string]interface{}),
-					PK:          ext.GetPk(),
-					Order:       f.Desc.Index(),
-					DbfkField:   ext.GetFk(),
-					Type:        f.Desc.Kind().String(),
-					TypeMessage: strcase.ToCamel(string(f.Desc.ContainingMessage().Name())),
-					Oneof: func() string {
-						if f.Desc.ContainingOneof() != nil {
-							return string(f.Desc.ContainingOneof().Name())
+					FK: types.FieldFK{
+						ParentOf: []*types.Field{},
+					},
+					MsgName:    strcase.ToCamel(string(f.Desc.Name())),
+					IsRepeated: f.Desc.IsList(),
+					IsMessage:  f.Desc.Message() != nil,
+					Extensions: make(map[string]interface{}),
+					PK:         ext.GetPk(),
+					Order:      f.Desc.Index(),
+					Type:       f.Desc.Kind().String(),
+					TypeMessage: func() string {
+						if f.Desc.Message() != nil {
+							return strcase.ToCamel(string(f.Desc.Message().Name()))
 						}
 						return ""
 					}(),
+					Oneof: func() string {
+						if f.Desc.ContainingOneof() != nil {
+							return strcase.ToCamel(string(f.Desc.ContainingOneof().Name()))
+						}
+						return ""
+					}(),
+				}
+				fkPath := strings.Split(ext.GetFk(), ".")
+				if len(fkPath) == 2 {
+					field.DbfkTable = fkPath[0]
+					field.DbfkField = fkPath[1]
+				} else {
+					field.DbfkField = fkPath[0]
 				}
 
 				p.tables.MessageTables[string(msg.Desc.Name())].Cols[string(f.Desc.Name())] = field
@@ -80,9 +95,7 @@ func (p *SqlGenerator) loadDependencies() {
 	for _, tbl := range p.tables.MessageTables {
 		for _, f := range tbl.Cols {
 			if f.DbfkField != "" {
-				fk := strings.Split(f.DbfkField, ".")
-				f.DbfkField = fk[1]
-				f.AddForeignKey(p.tables, fk[0], fk[1])
+				f.AddForeignKey(p.tables)
 			}
 
 		}

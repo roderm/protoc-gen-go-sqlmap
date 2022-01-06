@@ -24,26 +24,9 @@ func NewTestStore(conn *sql.DB) *TestStore {
 	return &TestStore{conn}
 }
 
-func (m *Employee) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed %+v", value)
-	}
-	m.Id = string(buff)
-	return nil
-}
-
-func (m *Employee) Value() (driver.Value, error) {
-	return m.Id, nil
-}
-
-func (m *Employee) GetIdentifier() interface{} {
-	return m.Id
-}
-
 func (m *Employee) Insert(s *TestStore, ctx context.Context) error {
 	ins := pg.NewInsert()
-	ins.Add(m.Firstname, m.Lastname)
+	ins.Add(m.GetFirstname(), m.GetLastname())
 
 	stmt, err := s.conn.PrepareContext(ctx, `
 		INSERT INTO "tbl_employee" ( "employee_firstname", "employee_lastname" )

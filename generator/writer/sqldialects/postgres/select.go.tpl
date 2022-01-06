@@ -20,12 +20,12 @@ func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgN
 	}
 	{{ range $i, $f := SubQueries . }}
 	if config.load{{ $f.MsgName  }} {
-		// {{ $f.FK.Remote.Table.GoPackageImport }}
-		{{ if eq $f.Table.StoreName $f.FK.Remote.Table.StoreName }}
-	 	_, err = s.{{ $f.FK.Remote.Table.MsgName  }}(ctx, config.opts{{ $f.MsgName }}...)
+		// {{ $f.FK.ChildOf.Table.GoPackageImport }}
+		{{ if eq $f.Table.StoreName $f.FK.ChildOf.Table.StoreName }}
+	 	_, err = s.{{ $f.FK.ChildOf.Table.MsgName  }}(ctx, config.opts{{ $f.MsgName }}...)
 		{{ else }}
-		store := {{ PackagePrefix $f.Table $f.FK.Remote.Table}}New{{ $f.FK.Remote.Table.StoreName }}(s.conn)
-		_, err = store.{{ $f.FK.Remote.Table.MsgName  }}(ctx, config.opts{{ $f.MsgName }}...)
+		store := {{ PackagePrefix $f.Table $f.FK.ChildOf.Table}}New{{ $f.FK.ChildOf.Table.StoreName }}(s.conn)
+		_, err = store.{{ $f.FK.ChildOf.Table.MsgName  }}(ctx, config.opts{{ $f.MsgName }}...)
 		{{ end }}
 	}
 	if err != nil {
@@ -74,7 +74,16 @@ func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, config *que
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		row := &{{ .MsgName }}{}
+		row := &{{ .MsgName }}{
+			{{- range $i, $join := $.Joins }}
+			{{- if $join.IsRepeated }}
+			{{ $join.TargetFieldName }}: []*{{ $join.SourcePackagePrefix}}{{ $join.SourceMessageName }}{},
+			{{- else if $join.TargetIsOneOf }}
+			{{- else }}
+			{{ $join.TargetFieldName }}: new({{ $join.SourcePackagePrefix}}{{ $join.SourceMessageName }}),
+			{{- end }}
+			{{- end }}
+		}
 		err := cursor.Scan( &row.{{ getFieldNames . ", &row." }} )
 		if err != nil {
 			return err

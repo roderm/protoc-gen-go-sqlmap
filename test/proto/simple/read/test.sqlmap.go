@@ -24,23 +24,6 @@ func NewTestStore(conn *sql.DB) *TestStore {
 	return &TestStore{conn}
 }
 
-func (m *Employee) Scan(value interface{}) error {
-	buff, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Failed %+v", value)
-	}
-	m.Id = string(buff)
-	return nil
-}
-
-func (m *Employee) Value() (driver.Value, error) {
-	return m.Id, nil
-}
-
-func (m *Employee) GetIdentifier() interface{} {
-	return m.Id
-}
-
 type queryEmployeeConfig struct {
 	Store        *TestStore
 	filter       pg.Where
@@ -103,34 +86,41 @@ func (s *TestStore) Employee(ctx context.Context, opts ...EmployeeOption) (map[i
 	}
 	return config.rows, nil
 }
-func (s *TestStore) selectEmployee(ctx context.Context, config *queryEmployeeConfig, withRow func(*Employee)) error {
+
+func (s *TestStore) GetEmployeeSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
 	base := 0
-	placeholders := func(base *int, length int) []interface{} {
-		arr := make([]interface{}, length)
-		for i := range arr {
-			*base++
-			arr[i] = fmt.Sprintf("$%d", *base)
-		}
-		return arr
+	where, vals := pg.GetWhereClause(filter, &base)
+	tpl := fmt.Sprintf(`
+		SELECT "employee_id", "employee_firstname", "employee_lastname"
+		FROM "tbl_employee"
+		%s`, where)
+
+	if limit > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
+		vals = append(vals, limit)
 	}
-	where, vals := pg.GetWhereClause(config.filter, &base)
-	params := append([]interface{}{where}, placeholders(&base, 2)...)
-	stmt, err := s.conn.PrepareContext(ctx, fmt.Sprintf(` 
-	SELECT "employee_id", "employee_firstname", "employee_lastname" 
-	FROM "tbl_employee"
-	%s
-	LIMIT %s OFFSET %s`, params...))
+	if start > 0 {
+		base++
+		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
+		vals = append(vals, start)
+	}
+	return tpl, vals
+}
+
+func (s *TestStore) selectEmployee(ctx context.Context, config *queryEmployeeConfig, withRow func(*Employee)) error {
+	query, vals := s.GetEmployeeSelectSqlString(config.filter, config.limit, config.start)
+	stmt, err := s.conn.PrepareContext(ctx, query)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed preparing '%s' query in 'selectEmployee': %s", query, err)
 	}
-	vals = append(vals, config.limit, config.start)
 	cursor, err := stmt.QueryContext(ctx, vals...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed executing query '%s' in 'selectEmployee' (with %+v) : %s", query, vals, err)
 	}
 	defer cursor.Close()
 	for cursor.Next() {
-		row := new(Employee)
+		row := &Employee{}
 		err := cursor.Scan(&row.Id, &row.Firstname, &row.Lastname)
 		if err != nil {
 			return err

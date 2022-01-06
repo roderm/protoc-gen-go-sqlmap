@@ -132,7 +132,7 @@ var TplFuncs = template.FuncMap{
 	"SubQueries": func(t *types.Table) []*types.Field {
 		foreignKeys := []*types.Field{}
 		for _, f := range t.Cols {
-			if f.IsMessage && f.FK.Remote != nil {
+			if f.IsMessage && f.FK.ChildOf != nil {
 				foreignKeys = append(foreignKeys, f)
 			}
 		}
@@ -148,15 +148,10 @@ var TplFuncs = template.FuncMap{
 		return GetPK(t).ColName
 	},
 	"RepeatedFKFieldGetter": func(t *types.Table, remote *types.Field) string {
-		for _, c := range t.Cols {
-			if c.ColName == remote.DbfkField {
-				return fmt.Sprintf("Get%s()", c.MsgName)
-			}
-		}
-		if remote.FK.Remote != nil {
-			for _, c := range remote.FK.Remote.Table.Cols {
+		if remote.FK.ChildOf != nil {
+			for _, c := range remote.FK.ChildOf.Table.Cols {
 				if c.DbfkField == remote.ColName {
-					for _, f := range c.FK.Remote.Table.Cols {
+					for _, f := range c.FK.ChildOf.Table.Cols {
 						if !f.IsRepeated && !f.IsMessage && f.ColName == c.DbfkField {
 							return fmt.Sprintf("Get%s()", f.MsgName)
 						}
@@ -164,12 +159,69 @@ var TplFuncs = template.FuncMap{
 				}
 			}
 		}
+		for _, c := range t.Cols {
+			if c.ColName == remote.DbfkField {
+				return fmt.Sprintf("Get%s()", c.MsgName)
+			}
+		}
 		return fmt.Sprintf("GetUnknown%s()", remote.MsgName)
+	},
+	"GetParentFieldColName": func(t *types.Table, r *types.Field) string {
+		if r.FK.ChildOf != nil {
+			for _, c := range r.FK.ChildOf.Table.Cols {
+				if c.DbfkField == r.ColName {
+					for _, f := range c.FK.ChildOf.Table.Cols {
+						if f.ColName == c.DbfkField {
+							return f.ColName
+						}
+					}
+				}
+			}
+		}
+		return ""
+	},
+	"GetParentFieldForChild": func(t *types.Table, r *types.Field) string {
+		if r.FK.ChildOf != nil {
+			for _, c := range r.FK.ChildOf.Table.Cols {
+				if c.DbfkField == r.ColName {
+					for _, f := range c.FK.ChildOf.Table.Cols {
+						if !f.IsRepeated && !f.IsMessage && f.ColName == c.DbfkField {
+							return fmt.Sprintf("Get%s().Get%s()", c.MsgName, f.MsgName)
+						}
+					}
+				}
+			}
+		}
+		for _, c := range t.Cols {
+			if c.ColName == r.DbfkField {
+				return fmt.Sprintf("Get%s()", c.MsgName)
+			}
+		}
+		return fmt.Sprintf("GetTable().GetField()")
+	},
+	"GetParentFieldForParent": func(t *types.Table, r *types.Field) string {
+		if r.FK.ChildOf != nil {
+			for _, c := range r.FK.ChildOf.Table.Cols {
+				if c.DbfkField == r.ColName {
+					for _, f := range c.FK.ChildOf.Table.Cols {
+						if !f.IsRepeated && !f.IsMessage && f.ColName == c.DbfkField {
+							return fmt.Sprintf("Get%s()", f.MsgName)
+						}
+					}
+				}
+			}
+		}
+		for _, c := range t.Cols {
+			if c.ColName == r.DbfkField {
+				return fmt.Sprintf("Get%s()", c.MsgName)
+			}
+		}
+		return fmt.Sprintf("GetTable().GetField()")
 	},
 	"MessageFKFieldGetter": func(t *types.Table, remote *types.Field) string {
 		if remote.IsMessage {
 			fieldname := ""
-			for _, f := range remote.FK.Remote.Table.Cols {
+			for _, f := range remote.FK.ChildOf.Table.Cols {
 				if f.ColName == remote.DbfkField {
 					fieldname = f.MsgName
 				}
@@ -180,7 +232,7 @@ var TplFuncs = template.FuncMap{
 		}
 	},
 	"MessageFKField": func(t *types.Table, remote *types.Field) string {
-		return fmt.Sprintf("Get%s()", remote.FK.Remote.MsgName)
+		return fmt.Sprintf("Get%s()", remote.FK.ChildOf.MsgName)
 	},
 	"MessageFKItemField": func(t *types.Table, remote *types.Field) string {
 		for _, c := range t.Cols {
@@ -188,10 +240,10 @@ var TplFuncs = template.FuncMap{
 				return fmt.Sprintf("Get%s()", c.MsgName)
 			}
 		}
-		if remote.FK.Remote != nil {
-			for _, c := range remote.FK.Remote.Table.Cols {
+		if remote.FK.ChildOf != nil {
+			for _, c := range remote.FK.ChildOf.Table.Cols {
 				if c.DbfkField == remote.ColName {
-					for _, f := range c.FK.Remote.Table.Cols {
+					for _, f := range c.FK.ChildOf.Table.Cols {
 						if !f.IsRepeated && !f.IsMessage && f.ColName == c.DbfkField {
 							return fmt.Sprintf("Get%s()", f.MsgName)
 						}
@@ -229,26 +281,39 @@ var TplFuncs = template.FuncMap{
 	"getColumnNames": func(t *types.Table, separator string) string {
 		str := ""
 		for _, f := range t.GetOrderedCols() {
-			if (!f.IsMessage && !f.IsRepeated) && len(f.ColName) > 0 && f.Oneof == "" {
+			if (!f.IsRepeated) && len(f.ColName) > 0 && f.Oneof == "" {
 				str = str + f.ColName + separator
 			}
 		}
 		return strings.TrimSuffix(str, separator)
 	},
-	"getFieldNames": func(t *types.Table, separator string) string {
-		str := ""
-		for _, f := range t.GetOrderedCols() {
-			if f.IsMessage || f.IsRepeated {
-				if f.FK.Remote != nil && f.FK.Remote.Table.Config.JSONB {
-					str = str + toPascalCase(f.MsgName) + separator
-					continue
-				}
-			}
-			if (!f.IsMessage && !f.IsRepeated) && len(f.ColName) > 0 && f.Oneof == "" {
-				str = str + toPascalCase(f.MsgName) + separator
+	"getMessageFields": func(t *types.Table) []*types.Field {
+		fields := []*types.Field{}
+		for _, f := range t.Cols {
+			if f.IsMessage {
+				fields = append(fields, f)
 			}
 		}
-		return strings.TrimSuffix(str, separator)
+		return fields
+	},
+	"getFieldNames": func(t *types.Table, separator string) string {
+		cols := []string{}
+		for _, f := range t.GetOrderedCols() {
+			if f.FK.ChildOf != nil && f.FK.ChildOf.Table.Config.JSONB {
+				cols = append(cols, toPascalCase(f.MsgName))
+				continue
+			}
+			if !f.IsMessage && !f.IsRepeated && len(f.ColName) > 0 && f.Oneof == "" {
+				cols = append(cols, toPascalCase(f.MsgName))
+			}
+		}
+		for _, f := range t.Joins {
+			if f.IsRepeated || f.Target.Oneof != "" {
+				continue
+			}
+			cols = append(cols, fmt.Sprintf("Get%s().%s", f.Target.MsgName, f.SourceTargetKeyField))
+		}
+		return strings.Join(cols, separator)
 	},
 	"getFullFieldName": getFullFieldName,
 	"GetInsertFieldNames": func(t *types.Table, obj string, separator string) string {
@@ -279,7 +344,7 @@ var TplFuncs = template.FuncMap{
 			return false
 		}
 		for _, f := range t.GetOrderedCols() {
-			if !inCols(f) && (f.PK == sqlgen.PK_PK_UNSPECIFIED) && f.FK.Remote == nil && len(f.ColName) > 0 {
+			if !inCols(f) && (f.PK == sqlgen.PK_PK_UNSPECIFIED) && f.FK.ChildOf == nil && len(f.ColName) > 0 {
 				cols = append(cols, f)
 			}
 		}
