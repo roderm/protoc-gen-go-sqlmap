@@ -319,7 +319,11 @@ var TplFuncs = template.FuncMap{
 	"GetInsertFieldNames": func(t *types.Table, obj string, separator string) string {
 		str := []string{}
 		for _, f := range getInsertFields(t) {
-			str = append(str, fmt.Sprintf("%s.Get%s()", obj, f.MsgName))
+			if f.IsMessage {
+				str = append(str, fmt.Sprintf("%s.%s", obj, getFullFieldName(f)))
+			} else {
+				str = append(str, fmt.Sprintf("%s.Get%s()", obj, f.MsgName))
+			}
 		}
 		return strings.Join(str, separator)
 	},
