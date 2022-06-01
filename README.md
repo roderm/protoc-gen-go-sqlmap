@@ -17,9 +17,9 @@ protoc --go-sqlmap_out=. [your-protobuf-definition].proto
 
 To make use of this plugin, add following extensions to you .proto-file:
 ```proto
-import "github.com/roderm/protoc-gen-go-sqlmap/proto/sqlgen/sqlgen.proto" // Import of the extensions
+import "github.com/roderm/protoc-gen-go-sqlmap/sqlgen/sqlgen.proto" // Import of the extensions
 // or with buf
-import "proto/sqlgen/sqlgen.proto"
+import "sqlgen/sqlgen.proto"
 
 message Some {
     option (sqlgen.table) = {name:"tbl_some", crud:[R]}; // table name and generate read-function
@@ -64,6 +64,7 @@ or for the sub-query:
 - [x] Write generator test 
 - [ ] Support multiple PKs
 - [ ] Add multiple FKs for single Message
+	- JSON_BUILD_OBJECT('fk1_id', "id", 'fk2_id', "id") AS "MsgName“"
 - [ ] Support `oneOf` type in proto3
 - [ ] Improve filter to no use column-names
 - [x] Load external messages to resolve foreign keys

@@ -2,43 +2,57 @@ package create
 
 import (
 	context "context"
-	sql "database/sql"
 	driver "database/sql/driver"
 	json "encoding/json"
 	fmt "fmt"
-	pg "github.com/roderm/protoc-gen-go-sqlmap/lib/go/pg"
+	squirrel "github.com/Masterminds/squirrel"
+	sqlx "github.com/jmoiron/sqlx"
+	squirrel1 "github.com/roderm/gotools/squirrel"
 )
 
 var _ = fmt.Sprintf
 var _ = context.TODO
-var _ = pg.NONE
-var _ = sql.Open
 var _ = driver.IsValue
 var _ = json.Valid
+var _ = squirrel.Select
+var _ = sqlx.Connect
+var _ = squirrel1.EqCall{}
 
 type TestStore struct {
-	conn *sql.DB
+	conn *sqlx.DB
 }
 
-func NewTestStore(conn *sql.DB) *TestStore {
+func NewTestStore(conn *sqlx.DB) *TestStore {
 	return &TestStore{conn}
 }
 
-func (m *Employee) Insert(s *TestStore, ctx context.Context) error {
-	ins := pg.NewInsert()
-	ins.Add(m.GetFirstname(), m.GetLastname())
+type EmployeeList map[interface{}]*Employee
 
-	stmt, err := s.conn.PrepareContext(ctx, `
-		INSERT INTO "tbl_employee" ( "employee_firstname", "employee_lastname" )
-		VALUES `+ins.String(nil)+`
-		RETURNING "employee_id", "employee_firstname", "employee_lastname"
-		`)
-
-	if err != nil {
-		return err
+func (m *Employee) GetSqlmapPK() interface{} {
+	pk := map[string]interface{}{
+		"employee_id": m.Id,
 	}
+	return pk
+}
+func (m *Employee) Scan(value interface{}) error {
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Failed %+v", value)
+	}
+	err := json.Unmarshal(buff, m)
+	if err != nil {
+		return fmt.Errorf("Unmarshal '%s' => 'Employee' failed: %s", string(buff), err)
+	}
+	return nil
+}
 
-	cursor, err := stmt.QueryContext(ctx, ins.Values()...)
+func (m *Employee) Insert(s *TestStore, ctx context.Context) error {
+	cursor, err := s.conn.NamedQueryContext(ctx, `
+		INSERT INTO "tbl_employee" ( "employee_firstname", "employee_lastname" )
+		VALUES ( :employee_firstname, :employee_lastname )
+		RETURNING "employee_id", "employee_firstname", "employee_lastname";`,
+		m,
+	)
 	if err != nil {
 		return err
 	}

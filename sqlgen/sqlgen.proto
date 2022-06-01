@@ -4,7 +4,7 @@ package sqlgen;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen";
+option go_package = "github.com/roderm/protoc-gen-go-sqlmap/sqlgen";
 
 enum PK {
     PK_UNSPECIFIED = 0;
@@ -22,6 +22,15 @@ enum OPERATION {
 message Table {
     required string name = 1;
     repeated OPERATION crud = 2;
+}
+
+message ForeignCol {
+	required string src = 1;
+	required string dst = 2;
+}
+message ForeignKey {
+	required string table = 1;
+	repeated ForeignCol field = 2;
 }
 
 message Column {

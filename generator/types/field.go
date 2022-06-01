@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 
-	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
+	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/sqlgen"
 )
 
 type FKRelation = int8

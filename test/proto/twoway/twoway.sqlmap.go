@@ -2,31 +2,53 @@ package twoway
 
 import (
 	context "context"
-	sql "database/sql"
 	driver "database/sql/driver"
 	json "encoding/json"
 	fmt "fmt"
-	pg "github.com/roderm/protoc-gen-go-sqlmap/lib/go/pg"
+	squirrel "github.com/Masterminds/squirrel"
+	sqlx "github.com/jmoiron/sqlx"
+	squirrel1 "github.com/roderm/gotools/squirrel"
 )
 
 var _ = fmt.Sprintf
 var _ = context.TODO
-var _ = pg.NONE
-var _ = sql.Open
 var _ = driver.IsValue
 var _ = json.Valid
+var _ = squirrel.Select
+var _ = sqlx.Connect
+var _ = squirrel1.EqCall{}
 
 type TwowayStore struct {
-	conn *sql.DB
+	conn *sqlx.DB
 }
 
-func NewTwowayStore(conn *sql.DB) *TwowayStore {
+func NewTwowayStore(conn *sqlx.DB) *TwowayStore {
 	return &TwowayStore{conn}
+}
+
+type MatchList map[interface{}]*Match
+
+func (m *Match) GetSqlmapPK() interface{} {
+	pk := map[string]interface{}{
+		"id": m.MatchId,
+	}
+	return pk
+}
+func (m *Match) Scan(value interface{}) error {
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Failed %+v", value)
+	}
+	err := json.Unmarshal(buff, m)
+	if err != nil {
+		return fmt.Errorf("Unmarshal '%s' => 'Match' failed: %s", string(buff), err)
+	}
+	return nil
 }
 
 type queryMatchConfig struct {
 	Store        *TwowayStore
-	filter       pg.Where
+	filter       []squirrel.Sqlizer
 	start        int
 	limit        int
 	beforeReturn []func(map[interface{}]*Match) error
@@ -46,13 +68,10 @@ func MatchPaging(page, length int) MatchOption {
 		config.limit = length
 	}
 }
-func MatchFilter(filter pg.Where) MatchOption {
+
+func MatchFilter(filter ...squirrel.Sqlizer) MatchOption {
 	return func(config *queryMatchConfig) {
-		if config.filter == nil {
-			config.filter = filter
-		} else {
-			config.filter = pg.AND(config.filter, filter)
-		}
+		config.filter = append(config.filter, filter...)
 	}
 }
 
@@ -72,13 +91,13 @@ func MatchWithHome(opts ...TeamOption) MatchOption {
 		})
 		config.optsHome = append(opts,
 			TeamFilter(
-				pg.INCallabel("id", func() []interface{} {
+				squirrel1.EqCall{"id": func() interface{} {
 					ids := []interface{}{}
 					for p := range parent {
 						ids = append(ids, p)
 					}
 					return ids
-				}),
+				}},
 			),
 			TeamOnRow(func(row *Team) {
 				children := parent[row.TeamId]
@@ -100,13 +119,13 @@ func MatchWithGuest(opts ...TeamOption) MatchOption {
 		})
 		config.optsGuest = append(opts,
 			TeamFilter(
-				pg.INCallabel("id", func() []interface{} {
+				squirrel1.EqCall{"id": func() interface{} {
 					ids := []interface{}{}
 					for p := range parent {
 						ids = append(ids, p)
 					}
 					return ids
-				}),
+				}},
 			),
 			TeamOnRow(func(row *Team) {
 				children := parent[row.TeamId]
@@ -118,12 +137,12 @@ func MatchWithGuest(opts ...TeamOption) MatchOption {
 	}
 }
 
-func (s *TwowayStore) Match(ctx context.Context, opts ...MatchOption) (map[interface{}]*Match, error) {
+func (s *TwowayStore) Match(ctx context.Context, opts ...MatchOption) (MatchList, error) {
 	config := &queryMatchConfig{
 		Store:  s,
-		filter: pg.NONE(),
+		filter: squirrel.And{},
 		limit:  1000,
-		rows:   make(map[interface{}]*Match),
+		rows:   make(MatchList),
 	}
 	for _, o := range opts {
 		o(config)
@@ -137,27 +156,18 @@ func (s *TwowayStore) Match(ctx context.Context, opts ...MatchOption) (map[inter
 	if err != nil {
 		return config.rows, err
 	}
-
 	if config.loadGuest {
-		// github.com/roderm/protoc-gen-go-sqlmap/test/twoway/twoway
-
 		_, err = s.Team(ctx, config.optsGuest...)
-
+		if err != nil {
+			return config.rows, err
+		}
 	}
-	if err != nil {
-		return config.rows, err
-	}
-
 	if config.loadHome {
-		// github.com/roderm/protoc-gen-go-sqlmap/test/twoway/twoway
-
 		_, err = s.Team(ctx, config.optsHome...)
-
+		if err != nil {
+			return config.rows, err
+		}
 	}
-	if err != nil {
-		return config.rows, err
-	}
-
 	for _, cb := range config.beforeReturn {
 		err = cb(config.rows)
 		if err != nil {
@@ -167,55 +177,74 @@ func (s *TwowayStore) Match(ctx context.Context, opts ...MatchOption) (map[inter
 	return config.rows, nil
 }
 
-func (s *TwowayStore) GetMatchSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
-	base := 0
-	where, vals := pg.GetWhereClause(filter, &base)
-	tpl := fmt.Sprintf(`
-		SELECT "id", "date", "home", "guest", "home_score", "guest_score"
-		FROM "tbl_match"
-		%s`, where)
-
+func (s *TwowayStore) GetMatchSelectSqlString(filter []squirrel.Sqlizer, limit int, start int) squirrel.SelectBuilder {
+	q := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar).
+		Select(`"id", "date", JSON_BUILD_OBJECT('id', "home") AS home, JSON_BUILD_OBJECT('id', "guest") AS guest, "home_score", "guest_score"`).
+		From("\"tbl_match\"").
+		Where(append(squirrel.And{}, filter...))
 	if limit > 0 {
-		base++
-		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
-		vals = append(vals, limit)
+		q.Limit(uint64(limit))
 	}
 	if start > 0 {
-		base++
-		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
-		vals = append(vals, start)
+		q.Offset(uint64(limit))
 	}
-	return tpl, vals
+	return q
 }
 
 func (s *TwowayStore) selectMatch(ctx context.Context, config *queryMatchConfig, withRow func(*Match)) error {
-	query, vals := s.GetMatchSelectSqlString(config.filter, config.limit, config.start)
-	stmt, err := s.conn.PrepareContext(ctx, query)
+	query := s.GetMatchSelectSqlString(config.filter, config.limit, config.start)
+	// cursor, err := query.RunWith(s.conn).QueryContext(ctx)
+	sql, params, _ := query.ToSql()
+	cursor, err := s.conn.QueryxContext(ctx, sql, params...)
 	if err != nil {
-		return fmt.Errorf("failed preparing '%s' query in 'selectMatch': %s", query, err)
-	}
-	cursor, err := stmt.QueryContext(ctx, vals...)
-	if err != nil {
-		return fmt.Errorf("failed executing query '%s' in 'selectMatch' (with %+v) : %s", query, vals, err)
+		return fmt.Errorf("failed executing query '%+v' in 'selectMatch': %s", query, err)
 	}
 	defer cursor.Close()
+	resultRows := []*Match{}
 	for cursor.Next() {
-		row := &Match{
-			Home:  new(Team),
-			Guest: new(Team),
+		row := new(Match)
+		err = cursor.StructScan(row)
+		if err == nil {
+			withRow(row)
+			resultRows = append(resultRows, row)
+		} else {
+			return fmt.Errorf("sqlx.StructScan failed: %s", err)
 		}
-		err := cursor.Scan(&row.MatchId, &row.Date, &row.HomeScore, &row.GuestScore, &row.GetHome().TeamId, &row.GetGuest().TeamId)
-		if err != nil {
-			return err
-		}
-		withRow(row)
+
+	}
+	// err = sqlx.StructScan(cursor, &resultRows)
+	// if err != nil {
+	// 	return fmt.Errorf("sqlx.StructScan failed: %s", err)
+	// }
+	// for _, row := range resultRows {
+	// 	withRow(row)
+	// }
+	return nil
+}
+
+type PlayerList map[interface{}]*Player
+
+func (m *Player) GetSqlmapPK() interface{} {
+	pk := map[string]interface{}{
+		"id": m.PlayerId,
+	}
+	return pk
+}
+func (m *Player) Scan(value interface{}) error {
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Failed %+v", value)
+	}
+	err := json.Unmarshal(buff, m)
+	if err != nil {
+		return fmt.Errorf("Unmarshal '%s' => 'Player' failed: %s", string(buff), err)
 	}
 	return nil
 }
 
 type queryPlayerConfig struct {
 	Store        *TwowayStore
-	filter       pg.Where
+	filter       []squirrel.Sqlizer
 	start        int
 	limit        int
 	beforeReturn []func(map[interface{}]*Player) error
@@ -233,13 +262,10 @@ func PlayerPaging(page, length int) PlayerOption {
 		config.limit = length
 	}
 }
-func PlayerFilter(filter pg.Where) PlayerOption {
+
+func PlayerFilter(filter ...squirrel.Sqlizer) PlayerOption {
 	return func(config *queryPlayerConfig) {
-		if config.filter == nil {
-			config.filter = filter
-		} else {
-			config.filter = pg.AND(config.filter, filter)
-		}
+		config.filter = append(config.filter, filter...)
 	}
 }
 
@@ -259,13 +285,13 @@ func PlayerWithTeam(opts ...TeamOption) PlayerOption {
 		})
 		config.optsTeam = append(opts,
 			TeamFilter(
-				pg.INCallabel("id", func() []interface{} {
+				squirrel1.EqCall{"id": func() interface{} {
 					ids := []interface{}{}
 					for p := range parent {
 						ids = append(ids, p)
 					}
 					return ids
-				}),
+				}},
 			),
 			TeamOnRow(func(row *Team) {
 				children := parent[row.TeamId]
@@ -277,12 +303,12 @@ func PlayerWithTeam(opts ...TeamOption) PlayerOption {
 	}
 }
 
-func (s *TwowayStore) Player(ctx context.Context, opts ...PlayerOption) (map[interface{}]*Player, error) {
+func (s *TwowayStore) Player(ctx context.Context, opts ...PlayerOption) (PlayerList, error) {
 	config := &queryPlayerConfig{
 		Store:  s,
-		filter: pg.NONE(),
+		filter: squirrel.And{},
 		limit:  1000,
-		rows:   make(map[interface{}]*Player),
+		rows:   make(PlayerList),
 	}
 	for _, o := range opts {
 		o(config)
@@ -296,17 +322,12 @@ func (s *TwowayStore) Player(ctx context.Context, opts ...PlayerOption) (map[int
 	if err != nil {
 		return config.rows, err
 	}
-
 	if config.loadTeam {
-		// github.com/roderm/protoc-gen-go-sqlmap/test/twoway/twoway
-
 		_, err = s.Team(ctx, config.optsTeam...)
-
+		if err != nil {
+			return config.rows, err
+		}
 	}
-	if err != nil {
-		return config.rows, err
-	}
-
 	for _, cb := range config.beforeReturn {
 		err = cb(config.rows)
 		if err != nil {
@@ -316,54 +337,74 @@ func (s *TwowayStore) Player(ctx context.Context, opts ...PlayerOption) (map[int
 	return config.rows, nil
 }
 
-func (s *TwowayStore) GetPlayerSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
-	base := 0
-	where, vals := pg.GetWhereClause(filter, &base)
-	tpl := fmt.Sprintf(`
-		SELECT "id", "name", "number", "team"
-		FROM "tbl_player"
-		%s`, where)
-
+func (s *TwowayStore) GetPlayerSelectSqlString(filter []squirrel.Sqlizer, limit int, start int) squirrel.SelectBuilder {
+	q := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar).
+		Select(`"id", "name", "number", JSON_BUILD_OBJECT('id', "team") AS team`).
+		From("\"tbl_player\"").
+		Where(append(squirrel.And{}, filter...))
 	if limit > 0 {
-		base++
-		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
-		vals = append(vals, limit)
+		q.Limit(uint64(limit))
 	}
 	if start > 0 {
-		base++
-		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
-		vals = append(vals, start)
+		q.Offset(uint64(limit))
 	}
-	return tpl, vals
+	return q
 }
 
 func (s *TwowayStore) selectPlayer(ctx context.Context, config *queryPlayerConfig, withRow func(*Player)) error {
-	query, vals := s.GetPlayerSelectSqlString(config.filter, config.limit, config.start)
-	stmt, err := s.conn.PrepareContext(ctx, query)
+	query := s.GetPlayerSelectSqlString(config.filter, config.limit, config.start)
+	// cursor, err := query.RunWith(s.conn).QueryContext(ctx)
+	sql, params, _ := query.ToSql()
+	cursor, err := s.conn.QueryxContext(ctx, sql, params...)
 	if err != nil {
-		return fmt.Errorf("failed preparing '%s' query in 'selectPlayer': %s", query, err)
-	}
-	cursor, err := stmt.QueryContext(ctx, vals...)
-	if err != nil {
-		return fmt.Errorf("failed executing query '%s' in 'selectPlayer' (with %+v) : %s", query, vals, err)
+		return fmt.Errorf("failed executing query '%+v' in 'selectPlayer': %s", query, err)
 	}
 	defer cursor.Close()
+	resultRows := []*Player{}
 	for cursor.Next() {
-		row := &Player{
-			Team: new(Team),
+		row := new(Player)
+		err = cursor.StructScan(row)
+		if err == nil {
+			withRow(row)
+			resultRows = append(resultRows, row)
+		} else {
+			return fmt.Errorf("sqlx.StructScan failed: %s", err)
 		}
-		err := cursor.Scan(&row.PlayerId, &row.Name, &row.Number, &row.GetTeam().TeamId)
-		if err != nil {
-			return err
-		}
-		withRow(row)
+
+	}
+	// err = sqlx.StructScan(cursor, &resultRows)
+	// if err != nil {
+	// 	return fmt.Errorf("sqlx.StructScan failed: %s", err)
+	// }
+	// for _, row := range resultRows {
+	// 	withRow(row)
+	// }
+	return nil
+}
+
+type TeamList map[interface{}]*Team
+
+func (m *Team) GetSqlmapPK() interface{} {
+	pk := map[string]interface{}{
+		"id": m.TeamId,
+	}
+	return pk
+}
+func (m *Team) Scan(value interface{}) error {
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Failed %+v", value)
+	}
+	err := json.Unmarshal(buff, m)
+	if err != nil {
+		return fmt.Errorf("Unmarshal '%s' => 'Team' failed: %s", string(buff), err)
 	}
 	return nil
 }
 
 type queryTeamConfig struct {
 	Store        *TwowayStore
-	filter       pg.Where
+	filter       []squirrel.Sqlizer
 	start        int
 	limit        int
 	beforeReturn []func(map[interface{}]*Team) error
@@ -381,13 +422,10 @@ func TeamPaging(page, length int) TeamOption {
 		config.limit = length
 	}
 }
-func TeamFilter(filter pg.Where) TeamOption {
+
+func TeamFilter(filter ...squirrel.Sqlizer) TeamOption {
 	return func(config *queryTeamConfig) {
-		if config.filter == nil {
-			config.filter = filter
-		} else {
-			config.filter = pg.AND(config.filter, filter)
-		}
+		config.filter = append(config.filter, filter...)
 	}
 }
 
@@ -395,6 +433,26 @@ func TeamOnRow(cb func(*Team)) TeamOption {
 	return func(s *queryTeamConfig) {
 		s.cb = append(s.cb, cb)
 	}
+}
+
+func (l TeamList) LoadPlayers(s *TwowayStore, ctx context.Context, opts ...PlayerOption) error {
+	ids := []interface{}{}
+	for p := range l {
+		ids = append(ids, p)
+	}
+	opts = append(opts,
+		PlayerOnRow(func(row *Player) {
+			parent_id := row.PlayerId
+			if _, ok := l[parent_id]; ok {
+				l[parent_id].Players = append(l[parent_id].Players, row)
+			}
+		}),
+		PlayerFilter(
+			squirrel.Eq{"id": ids},
+		),
+	)
+	_, err := s.Player(ctx, opts...)
+	return err
 }
 
 func TeamWithPlayers(opts ...PlayerOption) TeamOption {
@@ -406,14 +464,15 @@ func TeamWithPlayers(opts ...PlayerOption) TeamOption {
 			parent[child_key] = row
 		})
 		config.optsPlayers = append(opts,
+
 			PlayerFilter(
-				pg.INCallabel("id", func() []interface{} {
+				squirrel1.EqCall{"id": func() interface{} {
 					ids := []interface{}{}
 					for p := range parent {
 						ids = append(ids, p)
 					}
 					return ids
-				}),
+				}},
 			),
 			PlayerOnRow(func(row *Player) {
 				parent_id := row.PlayerId
@@ -425,12 +484,12 @@ func TeamWithPlayers(opts ...PlayerOption) TeamOption {
 	}
 }
 
-func (s *TwowayStore) Team(ctx context.Context, opts ...TeamOption) (map[interface{}]*Team, error) {
+func (s *TwowayStore) Team(ctx context.Context, opts ...TeamOption) (TeamList, error) {
 	config := &queryTeamConfig{
 		Store:  s,
-		filter: pg.NONE(),
+		filter: squirrel.And{},
 		limit:  1000,
-		rows:   make(map[interface{}]*Team),
+		rows:   make(TeamList),
 	}
 	for _, o := range opts {
 		o(config)
@@ -444,17 +503,12 @@ func (s *TwowayStore) Team(ctx context.Context, opts ...TeamOption) (map[interfa
 	if err != nil {
 		return config.rows, err
 	}
-
 	if config.loadPlayers {
-		// github.com/roderm/protoc-gen-go-sqlmap/test/twoway/twoway
-
 		_, err = s.Player(ctx, config.optsPlayers...)
-
+		if err != nil {
+			return config.rows, err
+		}
 	}
-	if err != nil {
-		return config.rows, err
-	}
-
 	for _, cb := range config.beforeReturn {
 		err = cb(config.rows)
 		if err != nil {
@@ -464,47 +518,47 @@ func (s *TwowayStore) Team(ctx context.Context, opts ...TeamOption) (map[interfa
 	return config.rows, nil
 }
 
-func (s *TwowayStore) GetTeamSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
-	base := 0
-	where, vals := pg.GetWhereClause(filter, &base)
-	tpl := fmt.Sprintf(`
-		SELECT "id", "league"
-		FROM "tbl_team"
-		%s`, where)
-
+func (s *TwowayStore) GetTeamSelectSqlString(filter []squirrel.Sqlizer, limit int, start int) squirrel.SelectBuilder {
+	q := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar).
+		Select(`"id", "league"`).
+		From("\"tbl_team\"").
+		Where(append(squirrel.And{}, filter...))
 	if limit > 0 {
-		base++
-		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
-		vals = append(vals, limit)
+		q.Limit(uint64(limit))
 	}
 	if start > 0 {
-		base++
-		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
-		vals = append(vals, start)
+		q.Offset(uint64(limit))
 	}
-	return tpl, vals
+	return q
 }
 
 func (s *TwowayStore) selectTeam(ctx context.Context, config *queryTeamConfig, withRow func(*Team)) error {
-	query, vals := s.GetTeamSelectSqlString(config.filter, config.limit, config.start)
-	stmt, err := s.conn.PrepareContext(ctx, query)
+	query := s.GetTeamSelectSqlString(config.filter, config.limit, config.start)
+	// cursor, err := query.RunWith(s.conn).QueryContext(ctx)
+	sql, params, _ := query.ToSql()
+	cursor, err := s.conn.QueryxContext(ctx, sql, params...)
 	if err != nil {
-		return fmt.Errorf("failed preparing '%s' query in 'selectTeam': %s", query, err)
-	}
-	cursor, err := stmt.QueryContext(ctx, vals...)
-	if err != nil {
-		return fmt.Errorf("failed executing query '%s' in 'selectTeam' (with %+v) : %s", query, vals, err)
+		return fmt.Errorf("failed executing query '%+v' in 'selectTeam': %s", query, err)
 	}
 	defer cursor.Close()
+	resultRows := []*Team{}
 	for cursor.Next() {
-		row := &Team{
-			Players: []*Player{},
+		row := new(Team)
+		err = cursor.StructScan(row)
+		if err == nil {
+			withRow(row)
+			resultRows = append(resultRows, row)
+		} else {
+			return fmt.Errorf("sqlx.StructScan failed: %s", err)
 		}
-		err := cursor.Scan(&row.TeamId, &row.League)
-		if err != nil {
-			return err
-		}
-		withRow(row)
+
 	}
+	// err = sqlx.StructScan(cursor, &resultRows)
+	// if err != nil {
+	// 	return fmt.Errorf("sqlx.StructScan failed: %s", err)
+	// }
+	// for _, row := range resultRows {
+	// 	withRow(row)
+	// }
 	return nil
 }

@@ -9,18 +9,7 @@ func (m *{{ .MsgName  }}) Insert(s *{{ .StoreName }}, ctx context.Context) (erro
 		"{{ $f.ColName }}": m.{{ $f.MsgName }},
 		{{- end}}
 	})
-	query.Suffix(`RETURNING {{ getColumnNames . ", " }}`)
-	cursor, err := query.RunWith(s.conn).QueryContext(ctx)
-	if err != nil {
-		return err
-	}
-	defer cursor.Close()
-	for cursor.Next() {
-		err := cursor.Scan( &m.{{ getFieldNames . ", &m." }} )
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err := query.RunWith(s.conn).ExecContext(ctx)
+	return err
 }
 {{end}}

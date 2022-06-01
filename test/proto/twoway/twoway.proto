@@ -2,7 +2,7 @@ syntax="proto3";
 
 package read;
 
-import "proto/sqlgen/sqlgen.proto";
+import "sqlgen/sqlgen.proto";
 
 option go_package = "github.com/roderm/protoc-gen-go-sqlmap/test/twoway/twoway";
 

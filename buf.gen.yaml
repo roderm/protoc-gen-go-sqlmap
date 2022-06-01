@@ -5,5 +5,5 @@ managed:
     default: github.com/roderm/protoc-gen-go-sqlmap
 plugins:
   - name: go
-    out: lib/go
+    out: .
     opt: paths=source_relative

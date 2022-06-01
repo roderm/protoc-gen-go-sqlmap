@@ -1,4 +1,3 @@
-{{ if .Config.Read }}
 func (s *{{ .StoreName }}) {{ .MsgName  }}(ctx context.Context, opts ...{{ .MsgName  }}Option) ({{ .MsgName }}List, error) {
 	config := &query{{ .MsgName  }}Config{
 		Store: s,
@@ -84,4 +83,3 @@ func (s *{{ .StoreName }}) select{{ .MsgName }}(ctx context.Context, config *que
 	// }
 	return nil
 }
-{{ end }}

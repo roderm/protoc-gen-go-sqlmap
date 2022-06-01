@@ -8,7 +8,7 @@ import (
 
 	"github.com/iancoleman/strcase"
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
-	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
+	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/sqlgen"
 )
 
 var TableMessageStore *types.TableMessages
@@ -31,7 +31,7 @@ func getFullFieldName(f *types.Field) string {
 		if ok {
 			for _, c := range table.Cols {
 				// && c.PK != sqlgen.PK_PK_UNSPECIFIED
-				if f.DbfkField == c.ColName {
+				if f.DbfkField == c.ColName && !c.IsMessage {
 					return fmt.Sprintf("Get%s().Get%s()", f.MsgName, toPascalCase(c.MsgName))
 				}
 			}
@@ -99,6 +99,7 @@ var TplFuncs = template.FuncMap{
 	"GetPrimaryBase": func(t *types.Table) int {
 		return len(GetPrimaries(t))
 	},
+	"GetPrimaries": GetPrimaries,
 	"GetPrimaryCols": func(t *types.Table) string {
 		names := []string{}
 		for i, n := range GetPrimaries(t) {
@@ -275,17 +276,18 @@ var TplFuncs = template.FuncMap{
 		}
 		return fmt.Sprintf("%s(%s)", GetType(pk), varName)
 	},
-	"IsReverseFK": func(fk *types.Field) bool {
-		return false
-	},
 	"getColumnNames": func(t *types.Table, separator string) string {
-		str := ""
+		cols := []string{}
 		for _, f := range t.GetOrderedCols() {
 			if (!f.IsRepeated) && len(f.ColName) > 0 && f.Oneof == "" {
-				str = str + f.ColName + separator
+				if f.IsMessage && f.FK.ChildOf != nil {
+					cols = append(cols, "JSON_BUILD_OBJECT('"+f.FK.ChildOf.ColName+"', \""+f.ColName+"\") AS "+f.ColName)
+				} else {
+					cols = append(cols, fmt.Sprintf("\"%s\"", f.ColName))
+				}
 			}
 		}
-		return strings.TrimSuffix(str, separator)
+		return strings.Join(cols, separator)
 	},
 	"getMessageFields": func(t *types.Table) []*types.Field {
 		fields := []*types.Field{}
@@ -330,12 +332,8 @@ var TplFuncs = template.FuncMap{
 	"Title": func(s string) string {
 		return toPascalCase(s)
 	},
-	"GetInsertColNames": func(t *types.Table, separator string) string {
-		str := ""
-		for _, f := range getInsertFields(t) {
-			str = str + f.ColName + separator
-		}
-		return strings.TrimSuffix(str, separator)
+	"GetInsertFields": func(t *types.Table) []*types.Field {
+		return getInsertFields(t)
 	},
 	"GetUpdateFields": func(t *types.Table) []*types.Field {
 		cols := []*types.Field{}

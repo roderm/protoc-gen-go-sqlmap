@@ -2,31 +2,53 @@ package jsonb
 
 import (
 	context "context"
-	sql "database/sql"
 	driver "database/sql/driver"
 	json "encoding/json"
 	fmt "fmt"
-	pg "github.com/roderm/protoc-gen-go-sqlmap/lib/go/pg"
+	squirrel "github.com/Masterminds/squirrel"
+	sqlx "github.com/jmoiron/sqlx"
+	squirrel1 "github.com/roderm/gotools/squirrel"
 )
 
 var _ = fmt.Sprintf
 var _ = context.TODO
-var _ = pg.NONE
-var _ = sql.Open
 var _ = driver.IsValue
 var _ = json.Valid
+var _ = squirrel.Select
+var _ = sqlx.Connect
+var _ = squirrel1.EqCall{}
 
 type TestStore struct {
-	conn *sql.DB
+	conn *sqlx.DB
 }
 
-func NewTestStore(conn *sql.DB) *TestStore {
+func NewTestStore(conn *sqlx.DB) *TestStore {
 	return &TestStore{conn}
+}
+
+type ProductList map[interface{}]*Product
+
+func (m *Product) GetSqlmapPK() interface{} {
+	pk := map[string]interface{}{
+		"product_id": m.ProductID,
+	}
+	return pk
+}
+func (m *Product) Scan(value interface{}) error {
+	buff, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Failed %+v", value)
+	}
+	err := json.Unmarshal(buff, m)
+	if err != nil {
+		return fmt.Errorf("Unmarshal '%s' => 'Product' failed: %s", string(buff), err)
+	}
+	return nil
 }
 
 type queryProductConfig struct {
 	Store        *TestStore
-	filter       pg.Where
+	filter       []squirrel.Sqlizer
 	start        int
 	limit        int
 	beforeReturn []func(map[interface{}]*Product) error
@@ -42,13 +64,10 @@ func ProductPaging(page, length int) ProductOption {
 		config.limit = length
 	}
 }
-func ProductFilter(filter pg.Where) ProductOption {
+
+func ProductFilter(filter ...squirrel.Sqlizer) ProductOption {
 	return func(config *queryProductConfig) {
-		if config.filter == nil {
-			config.filter = filter
-		} else {
-			config.filter = pg.AND(config.filter, filter)
-		}
+		config.filter = append(config.filter, filter...)
 	}
 }
 
@@ -58,12 +77,12 @@ func ProductOnRow(cb func(*Product)) ProductOption {
 	}
 }
 
-func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (map[interface{}]*Product, error) {
+func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (ProductList, error) {
 	config := &queryProductConfig{
 		Store:  s,
-		filter: pg.NONE(),
+		filter: squirrel.And{},
 		limit:  1000,
-		rows:   make(map[interface{}]*Product),
+		rows:   make(ProductList),
 	}
 	for _, o := range opts {
 		o(config)
@@ -77,7 +96,6 @@ func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (map[int
 	if err != nil {
 		return config.rows, err
 	}
-
 	for _, cb := range config.beforeReturn {
 		err = cb(config.rows)
 		if err != nil {
@@ -87,45 +105,47 @@ func (s *TestStore) Product(ctx context.Context, opts ...ProductOption) (map[int
 	return config.rows, nil
 }
 
-func (s *TestStore) GetProductSelectSqlString(filter pg.Where, limit int, start int) (string, []interface{}) {
-	base := 0
-	where, vals := pg.GetWhereClause(filter, &base)
-	tpl := fmt.Sprintf(`
-		SELECT "product_id", "product_name", "product_config"
-		FROM "tbl_product"
-		%s`, where)
-
+func (s *TestStore) GetProductSelectSqlString(filter []squirrel.Sqlizer, limit int, start int) squirrel.SelectBuilder {
+	q := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar).
+		Select(`"product_id", "product_name", "product_config"`).
+		From("\"tbl_product\"").
+		Where(append(squirrel.And{}, filter...))
 	if limit > 0 {
-		base++
-		tpl = tpl + fmt.Sprintf("\nLIMIT $%d", base)
-		vals = append(vals, limit)
+		q.Limit(uint64(limit))
 	}
 	if start > 0 {
-		base++
-		tpl = tpl + fmt.Sprintf("\nOFFSET $%d", base)
-		vals = append(vals, start)
+		q.Offset(uint64(limit))
 	}
-	return tpl, vals
+	return q
 }
 
 func (s *TestStore) selectProduct(ctx context.Context, config *queryProductConfig, withRow func(*Product)) error {
-	query, vals := s.GetProductSelectSqlString(config.filter, config.limit, config.start)
-	stmt, err := s.conn.PrepareContext(ctx, query)
+	query := s.GetProductSelectSqlString(config.filter, config.limit, config.start)
+	// cursor, err := query.RunWith(s.conn).QueryContext(ctx)
+	sql, params, _ := query.ToSql()
+	cursor, err := s.conn.QueryxContext(ctx, sql, params...)
 	if err != nil {
-		return fmt.Errorf("failed preparing '%s' query in 'selectProduct': %s", query, err)
-	}
-	cursor, err := stmt.QueryContext(ctx, vals...)
-	if err != nil {
-		return fmt.Errorf("failed executing query '%s' in 'selectProduct' (with %+v) : %s", query, vals, err)
+		return fmt.Errorf("failed executing query '%+v' in 'selectProduct': %s", query, err)
 	}
 	defer cursor.Close()
+	resultRows := []*Product{}
 	for cursor.Next() {
-		row := &Product{}
-		err := cursor.Scan(&row.ProductID, &row.ProductName)
-		if err != nil {
-			return err
+		row := new(Product)
+		err = cursor.StructScan(row)
+		if err == nil {
+			withRow(row)
+			resultRows = append(resultRows, row)
+		} else {
+			return fmt.Errorf("sqlx.StructScan failed: %s", err)
 		}
-		withRow(row)
+
 	}
+	// err = sqlx.StructScan(cursor, &resultRows)
+	// if err != nil {
+	// 	return fmt.Errorf("sqlx.StructScan failed: %s", err)
+	// }
+	// for _, row := range resultRows {
+	// 	withRow(row)
+	// }
 	return nil
 }

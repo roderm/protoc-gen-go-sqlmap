@@ -5,7 +5,7 @@ import (
 
 	"github.com/iancoleman/strcase"
 	"github.com/roderm/protoc-gen-go-sqlmap/generator/types"
-	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/lib/go/proto/sqlgen"
+	sqlgen "github.com/roderm/protoc-gen-go-sqlmap/sqlgen"
 	"google.golang.org/protobuf/proto"
 )
 

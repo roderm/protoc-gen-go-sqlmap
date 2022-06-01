@@ -1,33 +1,30 @@
 {{ if .Config.Update }}
-func (m *{{ .MsgName  }}) Update(s *{{ .StoreName }}, ctx context.Context, conf *pg.UpdateSQL) (error) {
-	base := {{ GetPrimaryBase . }}
-	if conf == nil {
-		conf = &pg.UpdateSQL{
-			ValueMap: make(map[string]interface{}),
-		}{{ range $i, $f := GetUpdateFields .}}
-		conf.ValueMap["{{ $f.ColName }}"] = m.{{ $f.MsgName }}{{end}}
-	}
-	stmt, err := s.conn.PrepareContext(ctx, `
-	UPDATE {{ .Name }} 
-	SET ` + conf.String(&base) + `
-	WHERE {{ GetPrimaryCols . }}
-	RETURNING {{ getColumnNames . ", " }}
-		`)
-	if err != nil {
-		return err
-	}
-
-	cursor, err := stmt.QueryContext(ctx, append([]interface{}{ {{ GetPrimaryValues . "m"}} }, conf.Values()...)... )
+func (m *{{ .MsgName  }}) Update(s *{{ .StoreName }}, ctx context.Context) (error) {
+	query := squirrel.Update("{{ .Name }}").Where(squirrel.Eq{
+		{{- range $i, $f := GetPrimaries .}}
+		"{{ $f.ColName }}": m.{{ $f.MsgName }},
+		{{- end }}
+	})
+	{{- range $i, $f := GetUpdateFields . }}
+	query.Set("{{ $f.ColName }}", m.{{ $f.MsgName }})
+	{{- end}}
+	query.Suffix(`RETURNING {{ getColumnNames . ", " }}`)
+	
+	cursor, err := query.RunWith(s.conn).QueryContext(ctx)
 	if err != nil {
 		return err
 	}
 	defer cursor.Close()
-	for cursor.Next() {
-		err := cursor.Scan( &m.{{ getFieldNames . ", &m." }} )
-		if err != nil {
-			return err
-		}
+	resultRows := []*{{ .MsgName  }}{}
+	err = sqlx.StructScan(cursor, &resultRows)
+	if err != nil {
+		return fmt.Errorf("sqlx.StructScan failed: %s", err)
 	}
-	return nil
+	if len(resultRows) > 0 {
+		m = resultRows[0]
+	} else {
+		err = fmt.Errorf("can't get updated col") 
+	}
+	return err
 }
 {{ end }}
