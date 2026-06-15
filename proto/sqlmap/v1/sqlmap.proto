@@ -1,0 +1,44 @@
+syntax = "proto2";
+
+package sqlmap.v1;
+
+import "google/protobuf/descriptor.proto";
+
+enum PK {
+  PK_UNSPECIFIED = 0;
+  PK_AUTO = 1;
+  PK_MAN = 2;
+}
+
+message Table {
+  required string name = 1;
+  repeated ForeignKeyDefinition foreign_keys = 2;
+}
+
+message Column {
+  optional string fieldname = 1;
+  optional PK pk = 2;
+  map<string, string> type = 3;
+}
+
+extend google.protobuf.MessageOptions {
+  optional Table table = 800100;
+}
+
+extend google.protobuf.FieldOptions {
+  optional Column col = 800110;
+  // optional string dbcol = 800110;
+  // optional PK dbpk = 800111;
+  // optional string dbfk = 800112;
+}
+message ForeignKeyDefinition {
+  repeated string fieldnames = 1;
+  required ForeignKey to = 2;
+
+  // OnDelete
+}
+
+message ForeignKey {
+  optional string entity = 1;
+  repeated string fieldnames = 2;
+}

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+vars:
+  GREETING: Hello, world!
+
+tasks:
+  generate:
+    desc: Print a greeting message
+    cmds:
+      - buf generate
+    silent: true
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - go mod tidy
+      - go install ./cmd/protoc-gen-go-sqlmap/
+    silent: true

@@ -1,11 +1,32 @@
-version: v1
-name: buf.build/roderm/protoc-gen-go-sqlmap
-build:
-  excludes:
-    - test/
-    - vendor/
+version: v2
+modules:
+  - path: proto/
+    name: buf.build/roderm/protoc-gen-go-sqlmap
 deps:
-  # - buf.build/protocolbuffers/protobuf
+  - buf.build/googleapis/googleapis
 lint:
   use:
-    - DEFAULT
+    - MINIMAL
+
+    - ENUM_FIRST_VALUE_ZERO
+    - ENUM_NO_ALLOW_ALIAS
+    - ENUM_VALUE_PREFIX
+    # - ENUM_PASCAL_CASE
+    - ENUM_VALUE_UPPER_SNAKE_CASE
+    - FIELD_LOWER_SNAKE_CASE
+    - FILE_LOWER_SNAKE_CASE
+    - IMPORT_NO_PUBLIC
+    - IMPORT_USED
+    - MESSAGE_PASCAL_CASE
+    - ONEOF_LOWER_SNAKE_CASE
+    - PACKAGE_LOWER_SNAKE_CASE
+    - PACKAGE_SAME_GO_PACKAGE
+    - PACKAGE_SAME_PHP_NAMESPACE
+    - RPC_PASCAL_CASE
+    - SERVICE_PASCAL_CASE
+    - PROTOVALIDATE
+  disallow_comment_ignores: false
+breaking:
+  except:
+    - EXTENSION_NO_DELETE
+    - FIELD_SAME_DEFAULT
