@@ -26,10 +26,7 @@ extend google.protobuf.MessageOptions {
 }
 
 extend google.protobuf.FieldOptions {
-  optional Column col = 800110;
-  // optional string dbcol = 800110;
-  // optional PK dbpk = 800111;
-  // optional string dbfk = 800112;
+  optional Column col = 800120;
 }
 message ForeignKeyDefinition {
   repeated string fieldnames = 1;
