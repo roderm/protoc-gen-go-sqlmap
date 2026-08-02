@@ -7,6 +7,7 @@
 package sqlmapv1
 
 import (
+	v1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
@@ -21,65 +22,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-type PK int32
-
-const (
-	PK_PK_UNSPECIFIED PK = 0
-	PK_PK_AUTO        PK = 1
-	PK_PK_MAN         PK = 2
-)
-
-// Enum value maps for PK.
-var (
-	PK_name = map[int32]string{
-		0: "PK_UNSPECIFIED",
-		1: "PK_AUTO",
-		2: "PK_MAN",
-	}
-	PK_value = map[string]int32{
-		"PK_UNSPECIFIED": 0,
-		"PK_AUTO":        1,
-		"PK_MAN":         2,
-	}
-)
-
-func (x PK) Enum() *PK {
-	p := new(PK)
-	*p = x
-	return p
-}
-
-func (x PK) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PK) Descriptor() protoreflect.EnumDescriptor {
-	return file_sqlmap_v1_sqlmap_proto_enumTypes[0].Descriptor()
-}
-
-func (PK) Type() protoreflect.EnumType {
-	return &file_sqlmap_v1_sqlmap_proto_enumTypes[0]
-}
-
-func (x PK) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Do not use.
-func (x *PK) UnmarshalJSON(b []byte) error {
-	num, err := protoimpl.X.UnmarshalJSONEnum(x.Descriptor(), b)
-	if err != nil {
-		return err
-	}
-	*x = PK(num)
-	return nil
-}
-
-// Deprecated: Use PK.Descriptor instead.
-func (PK) EnumDescriptor() ([]byte, []int) {
-	return file_sqlmap_v1_sqlmap_proto_rawDescGZIP(), []int{0}
-}
 
 type Table struct {
 	state         protoimpl.MessageState  `protogen:"open.v1"`
@@ -136,8 +78,9 @@ func (x *Table) GetForeignKeys() []*ForeignKeyDefinition {
 type Column struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Fieldname     *string                `protobuf:"bytes,1,opt,name=fieldname" json:"fieldname,omitempty"`
-	Pk            *PK                    `protobuf:"varint,2,opt,name=pk,enum=sqlmap.v1.PK" json:"pk,omitempty"`
+	Pk            *v1.PK                 `protobuf:"varint,2,opt,name=pk,enum=schema.v1.PK" json:"pk,omitempty"`
 	Type          map[string]string      `protobuf:"bytes,3,rep,name=type" json:"type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ForeignKey    *ForeignKey            `protobuf:"bytes,4,opt,name=foreign_key,json=foreignKey" json:"foreign_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -179,11 +122,11 @@ func (x *Column) GetFieldname() string {
 	return ""
 }
 
-func (x *Column) GetPk() PK {
+func (x *Column) GetPk() v1.PK {
 	if x != nil && x.Pk != nil {
 		return *x.Pk
 	}
-	return PK_PK_UNSPECIFIED
+	return v1.PK(0)
 }
 
 func (x *Column) GetType() map[string]string {
@@ -193,10 +136,18 @@ func (x *Column) GetType() map[string]string {
 	return nil
 }
 
+func (x *Column) GetForeignKey() *ForeignKey {
+	if x != nil {
+		return x.ForeignKey
+	}
+	return nil
+}
+
 type ForeignKeyDefinition struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Fieldnames    []string               `protobuf:"bytes,1,rep,name=fieldnames" json:"fieldnames,omitempty"`
 	To            *ForeignKey            `protobuf:"bytes,2,req,name=to" json:"to,omitempty"`
+	OnDelete      *v1.OnDelete           `protobuf:"varint,3,opt,name=on_delete,json=onDelete,enum=schema.v1.OnDelete" json:"on_delete,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -243,6 +194,13 @@ func (x *ForeignKeyDefinition) GetTo() *ForeignKey {
 		return x.To
 	}
 	return nil
+}
+
+func (x *ForeignKeyDefinition) GetOnDelete() v1.OnDelete {
+	if x != nil && x.OnDelete != nil {
+		return *x.OnDelete
+	}
+	return v1.OnDelete(0)
 }
 
 type ForeignKey struct {
@@ -309,9 +267,9 @@ var file_sqlmap_v1_sqlmap_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
 		ExtensionType: (*Column)(nil),
-		Field:         800110,
+		Field:         800120,
 		Name:          "sqlmap.v1.col",
-		Tag:           "bytes,800110,opt,name=col",
+		Tag:           "bytes,800120,opt,name=col",
 		Filename:      "sqlmap/v1/sqlmap.proto",
 	},
 }
@@ -324,7 +282,7 @@ var (
 
 // Extension fields to descriptorpb.FieldOptions.
 var (
-	// optional sqlmap.v1.Column col = 800110;
+	// optional sqlmap.v1.Column col = 800120;
 	E_Col = &file_sqlmap_v1_sqlmap_proto_extTypes[1]
 )
 
@@ -332,36 +290,34 @@ var File_sqlmap_v1_sqlmap_proto protoreflect.FileDescriptor
 
 const file_sqlmap_v1_sqlmap_proto_rawDesc = "" +
 	"\n" +
-	"\x16sqlmap/v1/sqlmap.proto\x12\tsqlmap.v1\x1a google/protobuf/descriptor.proto\"_\n" +
+	"\x16sqlmap/v1/sqlmap.proto\x12\tsqlmap.v1\x1a\x16schema/v1/schema.proto\x1a google/protobuf/descriptor.proto\"_\n" +
 	"\x05Table\x12\x12\n" +
 	"\x04name\x18\x01 \x02(\tR\x04name\x12B\n" +
-	"\fforeign_keys\x18\x02 \x03(\v2\x1f.sqlmap.v1.ForeignKeyDefinitionR\vforeignKeys\"\xaf\x01\n" +
+	"\fforeign_keys\x18\x02 \x03(\v2\x1f.sqlmap.v1.ForeignKeyDefinitionR\vforeignKeys\"\xe7\x01\n" +
 	"\x06Column\x12\x1c\n" +
 	"\tfieldname\x18\x01 \x01(\tR\tfieldname\x12\x1d\n" +
-	"\x02pk\x18\x02 \x01(\x0e2\r.sqlmap.v1.PKR\x02pk\x12/\n" +
-	"\x04type\x18\x03 \x03(\v2\x1b.sqlmap.v1.Column.TypeEntryR\x04type\x1a7\n" +
+	"\x02pk\x18\x02 \x01(\x0e2\r.schema.v1.PKR\x02pk\x12/\n" +
+	"\x04type\x18\x03 \x03(\v2\x1b.sqlmap.v1.Column.TypeEntryR\x04type\x126\n" +
+	"\vforeign_key\x18\x04 \x01(\v2\x15.sqlmap.v1.ForeignKeyR\n" +
+	"foreignKey\x1a7\n" +
 	"\tTypeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"]\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8f\x01\n" +
 	"\x14ForeignKeyDefinition\x12\x1e\n" +
 	"\n" +
 	"fieldnames\x18\x01 \x03(\tR\n" +
 	"fieldnames\x12%\n" +
-	"\x02to\x18\x02 \x02(\v2\x15.sqlmap.v1.ForeignKeyR\x02to\"D\n" +
+	"\x02to\x18\x02 \x02(\v2\x15.sqlmap.v1.ForeignKeyR\x02to\x120\n" +
+	"\ton_delete\x18\x03 \x01(\x0e2\x13.schema.v1.OnDeleteR\bonDelete\"D\n" +
 	"\n" +
 	"ForeignKey\x12\x16\n" +
 	"\x06entity\x18\x01 \x01(\tR\x06entity\x12\x1e\n" +
 	"\n" +
 	"fieldnames\x18\x02 \x03(\tR\n" +
-	"fieldnames*1\n" +
-	"\x02PK\x12\x12\n" +
-	"\x0ePK_UNSPECIFIED\x10\x00\x12\v\n" +
-	"\aPK_AUTO\x10\x01\x12\n" +
-	"\n" +
-	"\x06PK_MAN\x10\x02:I\n" +
+	"fieldnames:I\n" +
 	"\x05table\x12\x1f.google.protobuf.MessageOptions\x18\xe4\xea0 \x01(\v2\x10.sqlmap.v1.TableR\x05table:D\n" +
-	"\x03col\x12\x1d.google.protobuf.FieldOptions\x18\xee\xea0 \x01(\v2\x11.sqlmap.v1.ColumnR\x03colB\x9c\x01\n" +
-	"\rcom.sqlmap.v1B\vSqlmapProtoP\x01Z9github.com/roderm/protoc-gen-go-sqlmap/sqlmap/v1;sqlmapv1\xa2\x02\x03SXX\xaa\x02\tSqlmap.V1\xca\x02\tSqlmap\\V1\xe2\x02\x15Sqlmap\\V1\\GPBMetadata\xea\x02\n" +
+	"\x03col\x12\x1d.google.protobuf.FieldOptions\x18\xf8\xea0 \x01(\v2\x11.sqlmap.v1.ColumnR\x03colB\xaa\x01\n" +
+	"\rcom.sqlmap.v1B\vSqlmapProtoP\x01ZGgithub.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1;sqlmapv1\xa2\x02\x03SXX\xaa\x02\tSqlmap.V1\xca\x02\tSqlmap\\V1\xe2\x02\x15Sqlmap\\V1\\GPBMetadata\xea\x02\n" +
 	"Sqlmap::V1"
 
 var (
@@ -376,32 +332,34 @@ func file_sqlmap_v1_sqlmap_proto_rawDescGZIP() []byte {
 	return file_sqlmap_v1_sqlmap_proto_rawDescData
 }
 
-var file_sqlmap_v1_sqlmap_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_sqlmap_v1_sqlmap_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_sqlmap_v1_sqlmap_proto_goTypes = []any{
-	(PK)(0),                             // 0: sqlmap.v1.PK
-	(*Table)(nil),                       // 1: sqlmap.v1.Table
-	(*Column)(nil),                      // 2: sqlmap.v1.Column
-	(*ForeignKeyDefinition)(nil),        // 3: sqlmap.v1.ForeignKeyDefinition
-	(*ForeignKey)(nil),                  // 4: sqlmap.v1.ForeignKey
-	nil,                                 // 5: sqlmap.v1.Column.TypeEntry
-	(*descriptorpb.MessageOptions)(nil), // 6: google.protobuf.MessageOptions
-	(*descriptorpb.FieldOptions)(nil),   // 7: google.protobuf.FieldOptions
+	(*Table)(nil),                       // 0: sqlmap.v1.Table
+	(*Column)(nil),                      // 1: sqlmap.v1.Column
+	(*ForeignKeyDefinition)(nil),        // 2: sqlmap.v1.ForeignKeyDefinition
+	(*ForeignKey)(nil),                  // 3: sqlmap.v1.ForeignKey
+	nil,                                 // 4: sqlmap.v1.Column.TypeEntry
+	(v1.PK)(0),                          // 5: schema.v1.PK
+	(v1.OnDelete)(0),                    // 6: schema.v1.OnDelete
+	(*descriptorpb.MessageOptions)(nil), // 7: google.protobuf.MessageOptions
+	(*descriptorpb.FieldOptions)(nil),   // 8: google.protobuf.FieldOptions
 }
 var file_sqlmap_v1_sqlmap_proto_depIdxs = []int32{
-	3, // 0: sqlmap.v1.Table.foreign_keys:type_name -> sqlmap.v1.ForeignKeyDefinition
-	0, // 1: sqlmap.v1.Column.pk:type_name -> sqlmap.v1.PK
-	5, // 2: sqlmap.v1.Column.type:type_name -> sqlmap.v1.Column.TypeEntry
-	4, // 3: sqlmap.v1.ForeignKeyDefinition.to:type_name -> sqlmap.v1.ForeignKey
-	6, // 4: sqlmap.v1.table:extendee -> google.protobuf.MessageOptions
-	7, // 5: sqlmap.v1.col:extendee -> google.protobuf.FieldOptions
-	1, // 6: sqlmap.v1.table:type_name -> sqlmap.v1.Table
-	2, // 7: sqlmap.v1.col:type_name -> sqlmap.v1.Column
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	6, // [6:8] is the sub-list for extension type_name
-	4, // [4:6] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	2,  // 0: sqlmap.v1.Table.foreign_keys:type_name -> sqlmap.v1.ForeignKeyDefinition
+	5,  // 1: sqlmap.v1.Column.pk:type_name -> schema.v1.PK
+	4,  // 2: sqlmap.v1.Column.type:type_name -> sqlmap.v1.Column.TypeEntry
+	3,  // 3: sqlmap.v1.Column.foreign_key:type_name -> sqlmap.v1.ForeignKey
+	3,  // 4: sqlmap.v1.ForeignKeyDefinition.to:type_name -> sqlmap.v1.ForeignKey
+	6,  // 5: sqlmap.v1.ForeignKeyDefinition.on_delete:type_name -> schema.v1.OnDelete
+	7,  // 6: sqlmap.v1.table:extendee -> google.protobuf.MessageOptions
+	8,  // 7: sqlmap.v1.col:extendee -> google.protobuf.FieldOptions
+	0,  // 8: sqlmap.v1.table:type_name -> sqlmap.v1.Table
+	1,  // 9: sqlmap.v1.col:type_name -> sqlmap.v1.Column
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	8,  // [8:10] is the sub-list for extension type_name
+	6,  // [6:8] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_sqlmap_v1_sqlmap_proto_init() }
@@ -414,14 +372,13 @@ func file_sqlmap_v1_sqlmap_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sqlmap_v1_sqlmap_proto_rawDesc), len(file_sqlmap_v1_sqlmap_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 2,
 			NumServices:   0,
 		},
 		GoTypes:           file_sqlmap_v1_sqlmap_proto_goTypes,
 		DependencyIndexes: file_sqlmap_v1_sqlmap_proto_depIdxs,
-		EnumInfos:         file_sqlmap_v1_sqlmap_proto_enumTypes,
 		MessageInfos:      file_sqlmap_v1_sqlmap_proto_msgTypes,
 		ExtensionInfos:    file_sqlmap_v1_sqlmap_proto_extTypes,
 	}.Build()

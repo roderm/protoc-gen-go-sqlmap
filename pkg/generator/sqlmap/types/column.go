@@ -2,44 +2,51 @@ package types
 
 import (
 	"errors"
+	"fmt"
 
+	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type Column struct {
-	table *Table
-	def   *sqlmapv1.Column
-	field *protogen.Field
+	Table *Table
+	Def   *sqlmapv1.Column
+	Field *protogen.Field
 }
 
-func NewColumn(table *Table, field *protogen.Field) *Column {
+func NewColumn(table *Table, field *protogen.Field) (*Column, error) {
 	ext := proto.GetExtension(field.Desc.Options(), sqlmapv1.E_Col).(*sqlmapv1.Column)
 	if ext == nil {
-		return nil
+		return nil, fmt.Errorf("not defined...")
 	}
 	return &Column{
-		table: table,
-		def:   ext,
-		field: field,
+		Table: table,
+		Def:   ext,
+		Field: field,
+	}, nil
+}
+
+func (c *Column) GetFieldname() string {
+	if c.Def.Fieldname != nil {
+		return c.Def.GetFieldname()
 	}
+	return c.GetName()
 }
 
 func (c *Column) GetName() string {
-	if c.def.Fieldname != nil {
-		return *c.def.Fieldname
-	}
-	return string(c.field.Desc.Name())
+	return string(c.Field.GoName)
 }
 
-func (c *Column) GetSqlType(dialect string) (string, error) {
-	t, ok := c.def.Type[dialect]
+func (c *Column) GetSqlType(repo TableRepo, dialect string) (string, error) {
+	t, ok := c.Def.Type[dialect]
 	if ok {
 		return t, nil
 	}
-	switch c.field.Desc.Kind() {
+	switch c.Field.Desc.Kind() {
 	case protoreflect.BoolKind:
 		return "BOOLEAN", nil
 	case protoreflect.Int32Kind:
@@ -51,7 +58,34 @@ func (c *Column) GetSqlType(dialect string) (string, error) {
 	case protoreflect.FloatKind:
 		return "FLOAT", nil
 	case protoreflect.MessageKind:
-		return "", errors.New("message kind not supported (yet)")
+		if c.Def.ForeignKey != nil {
+			entity := string(c.Field.Message.Desc.Name())
+			var refCols []*Column
+			if c.Def.ForeignKey.Entity != nil {
+				entity = c.Def.ForeignKey.GetEntity()
+			}
+
+			tbl, ok := repo.GetByName(entity)
+			if !ok {
+				return "", fmt.Errorf("foreign key table '%s' not found", entity)
+			}
+			if len(c.Def.ForeignKey.Fieldnames) != 0 {
+				refCols = lo.Filter(tbl.GetColumns(), func(ref *Column, _ int) bool {
+					return lo.Contains(c.Def.ForeignKey.Fieldnames, string(ref.GetName()))
+				})
+			} else {
+				refCols = lo.Filter(tbl.GetColumns(), func(c *Column, _ int) bool {
+					return c.Def.Pk != nil && c.Def.Pk != schemav1.PK_PK_UNSPECIFIED.Enum()
+				})
+			}
+			col, ok := lo.First(refCols)
+			if !ok {
+				return "", errors.New("no reference column found")
+			}
+			return col.GetSqlType(repo, dialect)
+		}
+
+		return "JSON", nil
 	default:
 		return "", errors.New("unknown datatype")
 	}

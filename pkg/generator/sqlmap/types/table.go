@@ -8,10 +8,21 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type TableRepo []*Table
+
+func (r TableRepo) GetByName(name string) (*Table, bool) {
+	for _, tbl := range r {
+		if tbl.GetMessageName() == name {
+			return tbl, true
+		}
+	}
+	return nil, false
+}
+
 type Table struct {
-	def     *sqlmapv1.Table
-	file    *protogen.File
-	msg     *protogen.Message
+	Def     *sqlmapv1.Table
+	File    *protogen.File
+	Msg     *protogen.Message
 	columns []*Column
 }
 
@@ -21,28 +32,55 @@ func NewTableFromDescriptor(f *protogen.File, msg *protogen.Message) (*Table, er
 		return nil, fmt.Errorf("not defined")
 	}
 	table := &Table{
-		def:  ext,
-		file: f,
-		msg:  msg,
+		Def:  ext,
+		File: f,
+		Msg:  msg,
 	}
-	table.columns = make([]*Column, 0, len(msg.Fields))
-	for i, f := range msg.Fields {
-		table.columns[i] = NewColumn(table, f)
+	for _, f := range msg.Fields {
+		col, err := NewColumn(table, f)
+		if err == nil {
+			table.columns = append(table.columns, col)
+		}
 	}
 	return table, nil
 }
 
 func (t *Table) GetMessageName() string {
-	return string(t.msg.Desc.Name())
+	return string(t.Msg.Desc.Name())
 }
 
 func (t *Table) GetTableName() string {
-	if t.def.Name != nil {
-		return *t.def.Name
+	if t.Def.Name != nil {
+		return *t.Def.Name
 	}
 	return t.GetMessageName()
 }
 
 func (t *Table) GetColumns() []*Column {
 	return t.columns
+}
+
+func (t *Table) GetColumnByFieldName(name string) (*Column, bool) {
+	for _, col := range t.GetColumns() {
+		if col.GetFieldname() == name {
+			return col, true
+		}
+	}
+	return nil, false
+}
+
+func (t *Table) GetForeignKeys() []*sqlmapv1.ForeignKeyDefinition {
+	fks := []*sqlmapv1.ForeignKeyDefinition{}
+	for _, fk := range t.Def.ForeignKeys {
+		fks = append(fks, fk)
+	}
+	for _, c := range t.GetColumns() {
+		if c.Def.ForeignKey != nil {
+			fks = append(fks, &sqlmapv1.ForeignKeyDefinition{
+				Fieldnames: []string{c.Def.GetFieldname()},
+				To:         c.Def.ForeignKey,
+			})
+		}
+	}
+	return fks
 }

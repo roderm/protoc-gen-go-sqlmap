@@ -3,7 +3,7 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/roderm/protoc-gen-go-sqlmap
+      value: github.com/roderm/protoc-gen-go-sqlmap/pkg/generated
 plugins:
   - remote: buf.build/protocolbuffers/go
     out: pkg/generated

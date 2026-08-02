@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package schema.v1;
+
+enum PK {
+  PK_UNSPECIFIED = 0;
+  PK_AUTO = 1;
+  PK_MAN = 2;
+}
+
+enum OnDelete {
+  ON_DELETE_UNSPECIFIED = 0;
+  ON_DELETE_CASCADE = 1;
+  ON_DELETE_SET_NULL = 2;
+}
+
+message SchemaColumn {
+  optional string name = 1;
+  map<string, string> type = 2;
+  optional PK pk = 3;
+}
+
+message SchemaForeignKey {
+  repeated SchemaColumn columns = 1;
+  optional SchemaTable ref_table = 2;
+  repeated SchemaColumn ref_columns = 3;
+  optional OnDelete on_delete = 4;
+}
+
+message SchemaTable {
+  optional string name = 1;
+  repeated SchemaColumn columns = 2;
+  repeated SchemaForeignKey foreign_keys = 3;
+}

@@ -2,13 +2,10 @@ syntax = "proto2";
 
 package sqlmap.v1;
 
+import "schema/v1/schema.proto";
 import "google/protobuf/descriptor.proto";
 
-enum PK {
-  PK_UNSPECIFIED = 0;
-  PK_AUTO = 1;
-  PK_MAN = 2;
-}
+
 
 message Table {
   required string name = 1;
@@ -17,8 +14,9 @@ message Table {
 
 message Column {
   optional string fieldname = 1;
-  optional PK pk = 2;
+  optional schema.v1.PK pk = 2;
   map<string, string> type = 3;
+  optional ForeignKey foreign_key = 4;
 }
 
 extend google.protobuf.MessageOptions {
@@ -32,7 +30,7 @@ message ForeignKeyDefinition {
   repeated string fieldnames = 1;
   required ForeignKey to = 2;
 
-  // OnDelete
+  optional schema.v1.OnDelete on_delete = 3;
 }
 
 message ForeignKey {
