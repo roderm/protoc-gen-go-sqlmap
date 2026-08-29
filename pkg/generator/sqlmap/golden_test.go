@@ -1,0 +1,132 @@
+package sqlmap
+
+import (
+	"flag"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
+)
+
+// Set -update to (re)write the golden files from the current generator output.
+var update = flag.Bool("update", false, "update golden files")
+
+// generate compiles protoFile (relative to testdata/) with protoc into a
+// FileDescriptorSet, feeds it through the generator exactly like
+// cmd/protoc-gen-go-sqlmap does, and returns the generated files keyed by
+// name.
+func generate(t *testing.T, protoFile string) map[string]string {
+	t.Helper()
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found in PATH")
+	}
+
+	protoRoot, err := filepath.Abs(filepath.Join("..", "..", "..", "proto"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	testdata, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	descSet := filepath.Join(t.TempDir(), "descriptor_set.binpb")
+	cmd := exec.Command("protoc",
+		"-I", protoRoot,
+		"-I", testdata,
+		"--include_imports",
+		"--descriptor_set_out="+descSet,
+		filepath.Join(testdata, protoFile),
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("protoc: %v\n%s", err, out)
+	}
+
+	raw, err := os.ReadFile(descSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fds descriptorpb.FileDescriptorSet
+	if err := proto.Unmarshal(raw, &fds); err != nil {
+		t.Fatal(err)
+	}
+
+	req := &pluginpb.CodeGeneratorRequest{
+		FileToGenerate: []string{protoFile},
+		Parameter: proto.String("paths=source_relative," +
+			"Msqlmap/v1/sqlmap.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1," +
+			"Mschema/v1/schema.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"),
+		ProtoFile: fds.File,
+	}
+
+	gen, err := New(protogen.Options{}, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := gen.Generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Error != nil {
+		t.Fatalf("generator error: %s", resp.GetError())
+	}
+
+	out := make(map[string]string, len(resp.File))
+	for _, f := range resp.File {
+		out[f.GetName()] = f.GetContent()
+	}
+	return out
+}
+
+// compareGolden compares got against testdata/<name>.golden, or rewrites it
+// when -update is passed.
+func compareGolden(t *testing.T, name string, got string) {
+	t.Helper()
+	goldenPath := filepath.Join("testdata", name+".golden")
+
+	if *update {
+		if err := os.WriteFile(goldenPath, []byte(got), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
+	want, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("reading golden file %s: %v (run `go test ./pkg/generator/sqlmap/... -update` to create it)", goldenPath, err)
+	}
+	if got != string(want) {
+		t.Errorf("generated output for %q does not match %s.\nRun with -update to accept the new output if it's expected.\n--- got ---\n%s\n--- want ---\n%s", name, goldenPath, got, want)
+	}
+}
+
+func TestGenerate_Simple(t *testing.T) {
+	files := generate(t, "simple.proto")
+	got, ok := files["simple.sqlmap.go"]
+	if !ok {
+		t.Fatalf("no simple.sqlmap.go in generated output, got files: %v", fileNames(files))
+	}
+	compareGolden(t, "simple.sqlmap.go", got)
+}
+
+func TestGenerate_ForeignKey(t *testing.T) {
+	files := generate(t, "foreignkey.proto")
+	got, ok := files["foreignkey.sqlmap.go"]
+	if !ok {
+		t.Fatalf("no foreignkey.sqlmap.go in generated output, got files: %v", fileNames(files))
+	}
+	compareGolden(t, "foreignkey.sqlmap.go", got)
+}
+
+func fileNames(files map[string]string) []string {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	return names
+}

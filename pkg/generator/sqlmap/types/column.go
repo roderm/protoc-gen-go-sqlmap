@@ -49,9 +49,15 @@ func (c *Column) GetSqlType(repo TableRepo, dialect string) (string, error) {
 	switch c.Field.Desc.Kind() {
 	case protoreflect.BoolKind:
 		return "BOOLEAN", nil
-	case protoreflect.Int32Kind:
-		return "INT(11)", nil
-	case protoreflect.Int64Kind:
+	case protoreflect.Int32Kind, protoreflect.Int64Kind:
+		// SQLite requires the literal type name "INTEGER" for a column to be
+		// eligible as a ROWID alias, which AUTOINCREMENT (PK_AUTO) requires.
+		if dialect == "sqlite3" {
+			return "INTEGER", nil
+		}
+		if c.Field.Desc.Kind() == protoreflect.Int32Kind {
+			return "INT(11)", nil
+		}
 		return "BIGINT", nil
 	case protoreflect.StringKind:
 		return "VARCHAR(255)", nil

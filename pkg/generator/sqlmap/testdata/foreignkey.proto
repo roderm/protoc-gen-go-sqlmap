@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/foreignkeypb";
+
+message Parent {
+  option (sqlmap.v1.table) = { name: "tbl_parent" };
+  optional string id = 1 [(sqlmap.v1.col) = { pk: PK_AUTO }];
+}
+
+message Child {
+  option (sqlmap.v1.table) = { name: "tbl_child" };
+  optional string id = 1 [(sqlmap.v1.col) = { pk: PK_AUTO }];
+  optional Parent parent = 2 [(sqlmap.v1.col) = {
+    fieldname: "parent_id",
+    foreign_key: { entity: "Parent", fieldnames: ["Id"] }
+  }];
+}

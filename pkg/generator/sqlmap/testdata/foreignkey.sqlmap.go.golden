@@ -1,0 +1,152 @@
+package foreignkeypb
+
+import (
+	sql "database/sql"
+	fmt "fmt"
+	v1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	proto "google.golang.org/protobuf/proto"
+)
+
+var (
+	ParentColumnDef_Id = &v1.SchemaColumn{
+		Name: proto.String("Id"),
+		Type: map[string]string{
+			"mysql":    "VARCHAR(255)",
+			"postgres": "VARCHAR(255)",
+			"sqlite3":  "VARCHAR(255)",
+		},
+		Pk: v1.PK_PK_AUTO.Enum(),
+	}
+)
+var ParentTable = &v1.SchemaTable{
+	Name: proto.String("tbl_parent"),
+	Columns: []*v1.SchemaColumn{
+		ParentColumnDef_Id,
+	},
+}
+
+func init() {
+}
+
+var (
+	ChildColumnDef_Id = &v1.SchemaColumn{
+		Name: proto.String("Id"),
+		Type: map[string]string{
+			"mysql":    "VARCHAR(255)",
+			"postgres": "VARCHAR(255)",
+			"sqlite3":  "VARCHAR(255)",
+		},
+		Pk: v1.PK_PK_AUTO.Enum(),
+	}
+	ChildColumnDef_Parent = &v1.SchemaColumn{
+		Name: proto.String("parent_id"),
+		Type: map[string]string{
+			"mysql":    "VARCHAR(255)",
+			"postgres": "VARCHAR(255)",
+			"sqlite3":  "VARCHAR(255)",
+		},
+		Pk: v1.PK_PK_UNSPECIFIED.Enum(),
+	}
+)
+var ChildTable = &v1.SchemaTable{
+	Name: proto.String("tbl_child"),
+	Columns: []*v1.SchemaColumn{
+		ChildColumnDef_Id,
+		ChildColumnDef_Parent,
+	},
+}
+
+func init() {
+	ChildTable.ForeignKeys = append(ChildTable.ForeignKeys, &v1.SchemaForeignKey{
+		Columns: []*v1.SchemaColumn{
+			ChildColumnDef_Parent,
+		},
+		RefTable: ParentTable,
+		RefColumns: []*v1.SchemaColumn{
+			ParentColumnDef_Id,
+		},
+		OnDelete: v1.OnDelete_ON_DELETE_UNSPECIFIED.Enum(),
+	})
+}
+
+type ParentResult struct {
+	Parent
+}
+
+func (n *ParentResult) Scan(cols []string, r *sql.Row) error {
+	values := make([]any, len(cols))
+	for i, col := range cols {
+		switch col {
+		case "Id":
+			values[i] = &n.Id
+		default:
+			return fmt.Errorf("unknown column '%s'", col)
+		}
+	}
+	return r.Scan(values...)
+}
+
+func (n *Parent) GetColValue(col string) any {
+	switch col {
+	case "Id":
+		return n.Id
+	default:
+		return nil
+	}
+}
+
+func GetParentPKColumns() []string {
+	return []string{
+		"Id",
+	}
+}
+
+func GetParentColumns() []string {
+	return []string{
+		"Id",
+	}
+}
+
+type ChildResult struct {
+	Child
+	fk_parent_id_id any
+}
+
+func (n *ChildResult) Scan(cols []string, r *sql.Row) error {
+	values := make([]any, len(cols))
+	for i, col := range cols {
+		switch col {
+		case "Id":
+			values[i] = &n.Id
+		case "parent_id":
+			values[i] = &n.fk_parent_id_id
+		default:
+			return fmt.Errorf("unknown column '%s'", col)
+		}
+	}
+	return r.Scan(values...)
+}
+
+func (n *Child) GetColValue(col string) any {
+	switch col {
+	case "Id":
+		return n.Id
+	case "parent_id":
+		return n.Parent
+	default:
+		return nil
+	}
+}
+
+func GetChildPKColumns() []string {
+	return []string{
+		"Id",
+	}
+}
+
+func GetChildColumns() []string {
+	return []string{
+		"Id",
+		"parent_id",
+	}
+}

@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/simplepb";
+
+message Simple {
+  option (sqlmap.v1.table) = { name: "tbl_simple" };
+  optional int64 id = 1 [(sqlmap.v1.col) = { fieldname: "simple_id", pk: PK_AUTO }];
+  optional string name = 2 [(sqlmap.v1.col) = { fieldname: "simple_name" }];
+}

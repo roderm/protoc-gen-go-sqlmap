@@ -1,0 +1,82 @@
+package simplepb
+
+import (
+	sql "database/sql"
+	fmt "fmt"
+	v1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	proto "google.golang.org/protobuf/proto"
+)
+
+var (
+	SimpleColumnDef_Id = &v1.SchemaColumn{
+		Name: proto.String("simple_id"),
+		Type: map[string]string{
+			"mysql":    "BIGINT",
+			"postgres": "BIGINT",
+			"sqlite3":  "INTEGER",
+		},
+		Pk: v1.PK_PK_AUTO.Enum(),
+	}
+	SimpleColumnDef_Name = &v1.SchemaColumn{
+		Name: proto.String("simple_name"),
+		Type: map[string]string{
+			"mysql":    "VARCHAR(255)",
+			"postgres": "VARCHAR(255)",
+			"sqlite3":  "VARCHAR(255)",
+		},
+		Pk: v1.PK_PK_UNSPECIFIED.Enum(),
+	}
+)
+var SimpleTable = &v1.SchemaTable{
+	Name: proto.String("tbl_simple"),
+	Columns: []*v1.SchemaColumn{
+		SimpleColumnDef_Id,
+		SimpleColumnDef_Name,
+	},
+}
+
+func init() {
+}
+
+type SimpleResult struct {
+	Simple
+}
+
+func (n *SimpleResult) Scan(cols []string, r *sql.Row) error {
+	values := make([]any, len(cols))
+	for i, col := range cols {
+		switch col {
+		case "simple_id":
+			values[i] = &n.Id
+		case "simple_name":
+			values[i] = &n.Name
+		default:
+			return fmt.Errorf("unknown column '%s'", col)
+		}
+	}
+	return r.Scan(values...)
+}
+
+func (n *Simple) GetColValue(col string) any {
+	switch col {
+	case "simple_id":
+		return n.Id
+	case "simple_name":
+		return n.Name
+	default:
+		return nil
+	}
+}
+
+func GetSimplePKColumns() []string {
+	return []string{
+		"simple_id",
+	}
+}
+
+func GetSimpleColumns() []string {
+	return []string{
+		"simple_id",
+		"simple_name",
+	}
+}

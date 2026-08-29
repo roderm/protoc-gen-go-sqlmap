@@ -31,9 +31,7 @@ func (n *{{ .Name }}Result) Scan(cols []string, r *sql.Row) error {
 		{{- if not .IsMessage }}
 		values[i] = &n.{{ .MessageName }}
 		{{- else }}
-		// {{ .MessageType }}
-		f := new({{ .FK.Entity }})
-		values[i] = &f
+		values[i] = &n.fk_{{ .FieldName }}_id
 		{{- end }}
 	{{- end }}
 	default:

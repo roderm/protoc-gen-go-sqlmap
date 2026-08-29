@@ -30,7 +30,7 @@ var (
 {{- $msg := .Name }}
 {{- range .Columns }}
 	{{ $msg }}ColumnDef_{{ .Name }} = &{{ $pkg }}.SchemaColumn{
-		Name: {{ $proto }}.String("{{ .Name }}"),
+		Name: {{ $proto }}.String("{{ .SQLName }}"),
 		Type: map[string]string{
 			{{ range $k, $v := .Type }}"{{ $k }}": "{{ $v }}",
 			{{ end }}
@@ -71,9 +71,10 @@ func init() {
 `
 
 type Column struct {
-	Name string
-	Type map[string]string
-	Pk   string
+	Name    string // Go identifier suffix for the ColumnDef_ var, e.g. "Id"
+	SQLName string // actual SQL column name, e.g. "simple_id"
+	Type    map[string]string
+	Pk      string
 }
 
 type Table struct {
@@ -205,9 +206,10 @@ func (s *SchemaWriter) table(table *types.Table) error {
 		}),
 		Columns: lo.FilterMap(table.GetColumns(), func(c *types.Column, _ int) (*Column, bool) {
 			return &Column{
-				Name: c.GetName(),
-				Pk:   pkGoIdent(c.Def.GetPk()),
-				Type: lo.SliceToMap([]string{"mysql", "postgres"}, func(d string) (string, string) {
+				Name:    c.GetName(),
+				SQLName: c.GetFieldname(),
+				Pk:      pkGoIdent(c.Def.GetPk()),
+				Type: lo.SliceToMap([]string{"mysql", "postgres", "sqlite3"}, func(d string) (string, string) {
 					t, err := c.GetSqlType(s.repo, d)
 					if err != nil {
 						return d, "unknown[err: " + err.Error() + "]"
