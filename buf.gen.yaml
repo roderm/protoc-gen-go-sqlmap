@@ -1,9 +1,17 @@
-version: v1
+version: v2
 managed:
   enabled: true
-  go_package_prefix:
-    default: github.com/roderm/protoc-gen-go-sqlmap
+  override:
+    - file_option: go_package_prefix
+      value: github.com/roderm/protoc-gen-go-sqlmap/pkg/generated
 plugins:
-  - name: go
-    out: lib/go
-    opt: paths=source_relative
+  - remote: buf.build/protocolbuffers/go
+    out: pkg/generated
+    opt:
+      - paths=source_relative
+      - Mgoogle/type/datetime.proto=google.golang.org/genproto/googleapis/type/datetime
+
+  # - remote: buf.build/roderm/sqlmap
+  #   out: pkg/generated/sqlmap
+  #   opt:
+  #     - dialect=mysql

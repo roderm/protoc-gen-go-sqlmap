@@ -1,0 +1,44 @@
+syntax = "proto2";
+
+package sqlmap.v1;
+
+import "schema/v1/schema.proto";
+import "google/protobuf/descriptor.proto";
+
+
+
+message Table {
+  required string name = 1;
+  repeated ForeignKeyDefinition foreign_keys = 2;
+}
+
+message Column {
+  optional string fieldname = 1;
+  optional schema.v1.PK pk = 2;
+  map<string, string> type = 3;
+  optional ForeignKey foreign_key = 4;
+
+  // Overrides the nullability otherwise derived from the proto field's
+  // presence. Unset means: NOT NULL for primary keys and for fields without
+  // explicit presence (a proto3 bare scalar), nullable otherwise.
+  optional bool nullable = 5;
+}
+
+extend google.protobuf.MessageOptions {
+  optional Table table = 800100;
+}
+
+extend google.protobuf.FieldOptions {
+  optional Column col = 800120;
+}
+message ForeignKeyDefinition {
+  repeated string fieldnames = 1;
+  required ForeignKey to = 2;
+
+  optional schema.v1.OnDelete on_delete = 3;
+}
+
+message ForeignKey {
+  optional string entity = 1;
+  repeated string fieldnames = 2;
+}
