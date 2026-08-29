@@ -203,7 +203,9 @@ func LoadParentRows(ctx context.Context, c query.Conn, m *query.Mask, conds []qu
 }
 
 // LoadParent selects tbl_parent rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func LoadParent(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Parent, error) {
 	rows, err := LoadParentRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {
@@ -260,7 +262,7 @@ func LoadChildRows(ctx context.Context, c query.Conn, m *query.Mask, conds []que
 		return rows, nil
 	}
 
-	if m.Has("parent") {
+	if m.HasRelation("parent") {
 		byKey := make(map[any][]*ChildResult, len(rows))
 		for _, row := range rows {
 			key := query.Key(row.fk_parent_id_id)
@@ -286,7 +288,9 @@ func LoadChildRows(ctx context.Context, c query.Conn, m *query.Mask, conds []que
 }
 
 // LoadChild selects tbl_child rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func LoadChild(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Child, error) {
 	rows, err := LoadChildRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {

@@ -237,7 +237,9 @@ func LoadAuthorRows(ctx context.Context, c query.Conn, m *query.Mask, conds []qu
 }
 
 // LoadAuthor selects tbl_author rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func LoadAuthor(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Author, error) {
 	rows, err := LoadAuthorRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {
@@ -301,7 +303,9 @@ func LoadBookRows(ctx context.Context, c query.Conn, m *query.Mask, conds []quer
 }
 
 // LoadBook selects tbl_book rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func LoadBook(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Book, error) {
 	rows, err := LoadBookRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {

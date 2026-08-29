@@ -51,6 +51,20 @@ func (c *Column) IsPrimaryKey() bool {
 	return c.Def.GetPk() != schemav1.PK_PK_UNSPECIFIED
 }
 
+// GetForeignKeyEntity returns the message name the column's foreign key points
+// at, defaulting to the field's own message type when `entity` is not spelled
+// out -- which is the common case, since a message-kind field already names
+// what it references.
+func (c *Column) GetForeignKeyEntity() string {
+	if c.Def.ForeignKey.GetEntity() != "" {
+		return c.Def.ForeignKey.GetEntity()
+	}
+	if c.Field.Message != nil {
+		return string(c.Field.Message.Desc.Name())
+	}
+	return ""
+}
+
 // IsMessage reports whether the column's value is a reference stored as a
 // message field, which the scanner keeps as a raw fk_<column>_id value rather
 // than scanning into the message itself.
@@ -82,25 +96,32 @@ func (c *Column) GetSqlType(repo TableRepo, dialect string) (string, error) {
 	case protoreflect.BoolKind:
 		return "BOOLEAN", nil
 	case protoreflect.Int32Kind, protoreflect.Int64Kind:
-		// SQLite requires the literal type name "INTEGER" for a column to be
-		// eligible as a ROWID alias, which AUTOINCREMENT (PK_AUTO) requires.
-		if dialect == "sqlite3" {
+		switch dialect {
+		case "sqlite3":
+			// SQLite requires the literal type name "INTEGER" for a column to
+			// be eligible as a ROWID alias, which AUTOINCREMENT (PK_AUTO)
+			// requires.
 			return "INTEGER", nil
+		case "mysql":
+			if c.Field.Desc.Kind() == protoreflect.Int32Kind {
+				return "INT(11)", nil
+			}
+			return "BIGINT", nil
+		default:
+			// PostgreSQL has no display-width syntax: INT(11) is a syntax
+			// error there, not a wider integer.
+			if c.Field.Desc.Kind() == protoreflect.Int32Kind {
+				return "INTEGER", nil
+			}
+			return "BIGINT", nil
 		}
-		if c.Field.Desc.Kind() == protoreflect.Int32Kind {
-			return "INT(11)", nil
-		}
-		return "BIGINT", nil
 	case protoreflect.StringKind:
 		return "VARCHAR(255)", nil
 	case protoreflect.FloatKind:
 		return "FLOAT", nil
 	case protoreflect.MessageKind:
 		if c.Def.ForeignKey != nil {
-			entity := string(c.Field.Message.Desc.Name())
-			if c.Def.ForeignKey.Entity != nil {
-				entity = c.Def.ForeignKey.GetEntity()
-			}
+			entity := c.GetForeignKeyEntity()
 			tbl, ok := repo.GetByName(entity)
 			if !ok {
 				return "", fmt.Errorf("foreign key table '%s' not found", entity)

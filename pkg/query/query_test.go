@@ -25,6 +25,38 @@ func TestMask_NilSelectsEverything(t *testing.T) {
 	}
 }
 
+// Columns and relations differ on an absent mask: every column is selected,
+// but no relation is loaded. Otherwise "no mask" would walk the entire object
+// graph and never terminate once two tables reference each other.
+func TestMask_RelationsAreOptIn(t *testing.T) {
+	var absent *Mask
+	if !absent.Has("any_column") {
+		t.Error("an absent mask must select every column")
+	}
+	if absent.HasRelation("books") {
+		t.Error("an absent mask must not load any relation")
+	}
+
+	// The sub-mask below a leaf path is itself absent, which is what bounds
+	// loading to the depth the mask actually spells out.
+	m := NewMask("books")
+	if !m.HasRelation("books") {
+		t.Error(`HasRelation("books") = false, want true`)
+	}
+	if m.Sub("books").HasRelation("publisher") {
+		t.Error("a leaf path must not cascade into the relations below it")
+	}
+
+	// One level deeper, the nested relation is named and so does load.
+	nested := NewMask("books.publisher.name")
+	if !nested.HasRelation("books") || !nested.Sub("books").HasRelation("publisher") {
+		t.Error("a nested path should select the relations along it")
+	}
+	if nested.Sub("books").HasRelation("reviews") {
+		t.Error("a relation not named in the path must not load")
+	}
+}
+
 func TestMask_Leaf(t *testing.T) {
 	m := NewMask("name")
 	if !m.Has("name") {

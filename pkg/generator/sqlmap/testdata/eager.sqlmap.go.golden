@@ -106,6 +106,16 @@ var (
 		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
 		Nullable: proto.Bool(true),
 	}
+	BookColumnDef_Pages = &v1.SchemaColumn{
+		Name: proto.String("pages"),
+		Type: map[string]string{
+			"mysql":    "INT(11)",
+			"postgres": "INTEGER",
+			"sqlite3":  "INTEGER",
+		},
+		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
+		Nullable: proto.Bool(true),
+	}
 	BookColumnDef_Publisher = &v1.SchemaColumn{
 		Name: proto.String("publisher_id"),
 		Type: map[string]string{
@@ -123,6 +133,7 @@ var BookTable = &v1.SchemaTable{
 		BookColumnDef_Id,
 		BookColumnDef_Title,
 		BookColumnDef_AuthorId,
+		BookColumnDef_Pages,
 		BookColumnDef_Publisher,
 	},
 }
@@ -254,6 +265,8 @@ func (n *BookResult) Scan(cols []string, r interface{ Scan(dest ...any) error })
 			values[i] = &n.Title
 		case "author_id":
 			values[i] = &n.AuthorId
+		case "pages":
+			values[i] = &n.Pages
 		case "publisher_id":
 			values[i] = &n.fk_publisher_id_id
 		default:
@@ -271,6 +284,8 @@ func (n *Book) GetColValue(col string) any {
 		return n.Title
 	case "author_id":
 		return n.AuthorId
+	case "pages":
+		return n.Pages
 	case "publisher_id":
 		return n.Publisher
 	default:
@@ -289,6 +304,7 @@ func GetBookColumns() []string {
 		"book_id",
 		"book_title",
 		"author_id",
+		"pages",
 		"publisher_id",
 	}
 }
@@ -341,7 +357,9 @@ func LoadPublisherRows(ctx context.Context, c query.Conn, m *query.Mask, conds [
 }
 
 // LoadPublisher selects tbl_publisher rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func LoadPublisher(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Publisher, error) {
 	rows, err := LoadPublisherRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {
@@ -398,7 +416,7 @@ func LoadAuthorRows(ctx context.Context, c query.Conn, m *query.Mask, conds []qu
 		return rows, nil
 	}
 
-	if m.Has("books") {
+	if m.HasRelation("books") {
 		byKey := make(map[any][]*AuthorResult, len(rows))
 		for _, row := range rows {
 			key := query.Key(row.GetId())
@@ -424,7 +442,9 @@ func LoadAuthorRows(ctx context.Context, c query.Conn, m *query.Mask, conds []qu
 }
 
 // LoadAuthor selects tbl_author rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func LoadAuthor(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Author, error) {
 	rows, err := LoadAuthorRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {
@@ -441,13 +461,16 @@ func LoadAuthor(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, 
 // are always included: they are what relations are stitched on, so leaving
 // them out of the mask must not break eager loading.
 func BookQueryColumns(m *query.Mask, extra ...string) []string {
-	cols := make([]string, 0, 4+len(extra))
+	cols := make([]string, 0, 5+len(extra))
 	cols = append(cols, "book_id")
 	if m.Has("title") {
 		cols = append(cols, "book_title")
 	}
 	if m.Has("author_id") {
 		cols = append(cols, "author_id")
+	}
+	if m.Has("pages") {
+		cols = append(cols, "pages")
 	}
 	if m.Has("publisher") {
 		cols = append(cols, "publisher_id")
@@ -487,7 +510,7 @@ func LoadBookRows(ctx context.Context, c query.Conn, m *query.Mask, conds []quer
 		return rows, nil
 	}
 
-	if m.Has("publisher") {
+	if m.HasRelation("publisher") {
 		byKey := make(map[any][]*BookResult, len(rows))
 		for _, row := range rows {
 			key := query.Key(row.fk_publisher_id_id)
@@ -513,7 +536,9 @@ func LoadBookRows(ctx context.Context, c query.Conn, m *query.Mask, conds []quer
 }
 
 // LoadBook selects tbl_book rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func LoadBook(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Book, error) {
 	rows, err := LoadBookRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {

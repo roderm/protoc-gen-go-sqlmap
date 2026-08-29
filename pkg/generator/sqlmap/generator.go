@@ -109,6 +109,14 @@ func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 		}
 	}
 	for _, protoFile := range p.plugin.Files {
+		// Emit nothing for a file that declares no tables. Well-known types
+		// are in the request too, and generating a bare `package` stub for
+		// each one both litters the output and breaks the build: with
+		// paths=source_relative, descriptor.proto and timestamp.proto land in
+		// the same directory under different Go package names.
+		if len(p.repo.ForFile(protoFile)) == 0 {
+			continue
+		}
 		fileName := protoFile.GeneratedFilenamePrefix + ".sqlmap.go"
 		g := p.plugin.NewGeneratedFile(fileName, ".")
 

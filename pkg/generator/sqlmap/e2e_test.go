@@ -186,7 +186,8 @@ func run(ctx context.Context, db *sql.DB) error {
 		}
 	}
 
-	// A nil mask selects every column and no relations.
+	// A nil mask selects every column but loads no relations: eager loading is
+	// opt-in, so that "no mask" cannot walk the whole object graph.
 	authors, err = eagerpb.LoadAuthor(ctx, conn, nil)
 	if err != nil {
 		return fmt.Errorf("LoadAuthor(nil): %w", err)
@@ -194,6 +195,26 @@ func run(ctx context.Context, db *sql.DB) error {
 	for _, a := range authors {
 		if a.GetName() == "" {
 			return fmt.Errorf("a nil mask should select every column, but author_name was empty")
+		}
+		if len(a.GetBooks()) != 0 {
+			return fmt.Errorf("a nil mask loaded %d books; relations must be opt-in", len(a.GetBooks()))
+		}
+	}
+
+	// A leaf path selects the whole relation, but must not cascade into the
+	// relations below it.
+	authors, err = eagerpb.LoadAuthor(ctx, conn, &fieldmaskpb.FieldMask{Paths: []string{"books"}})
+	if err != nil {
+		return fmt.Errorf("LoadAuthor(books): %w", err)
+	}
+	for _, a := range authors {
+		for _, b := range a.GetBooks() {
+			if b.GetTitle() == "" {
+				return fmt.Errorf("a leaf relation path should select all of its columns")
+			}
+			if b.GetPublisher() != nil {
+				return fmt.Errorf("a leaf relation path must not cascade into nested relations")
+			}
 		}
 	}
 	return nil

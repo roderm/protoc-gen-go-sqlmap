@@ -106,10 +106,26 @@ func NewMask(paths ...string) *Mask {
 	return root
 }
 
-// Has reports whether name is selected by the mask.
+// Has reports whether a column is selected by the mask. An absent mask
+// selects every column.
 func (m *Mask) Has(name string) bool {
 	if m == nil || m.fields == nil {
 		return true
+	}
+	_, ok := m.fields[name]
+	return ok
+}
+
+// HasRelation reports whether a relation is selected by the mask.
+//
+// Unlike Has, an absent mask selects *no* relations. Eager loading has to be
+// asked for: "everything" would otherwise walk the whole object graph, which
+// never terminates once two tables reference each other. It also means the
+// depth of loading is exactly the depth spelled out in the mask, since the
+// sub-mask below a leaf path is itself absent.
+func (m *Mask) HasRelation(name string) bool {
+	if m == nil || m.fields == nil {
+		return false
 	}
 	_, ok := m.fields[name]
 	return ok

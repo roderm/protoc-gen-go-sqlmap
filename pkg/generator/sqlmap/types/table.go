@@ -116,9 +116,16 @@ func (t *Table) GetForeignKeys() []*sqlmapv1.ForeignKeyDefinition {
 	// declares the constraint from its own side.
 	for _, c := range t.GetColumns() {
 		if c.Def.ForeignKey != nil {
+			// Resolve `entity` here rather than passing the raw option
+			// through: it is usually left unset, because the message-kind
+			// field already names what it references.
+			to := &sqlmapv1.ForeignKey{
+				Entity:     proto.String(c.GetForeignKeyEntity()),
+				Fieldnames: c.Def.ForeignKey.GetFieldnames(),
+			}
 			fks = append(fks, &sqlmapv1.ForeignKeyDefinition{
 				Fieldnames: []string{c.GetFieldname()},
-				To:         c.Def.ForeignKey,
+				To:         to,
 			})
 		}
 	}

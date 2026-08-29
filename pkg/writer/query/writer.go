@@ -76,7 +76,7 @@ func Load{{ $msg }}Rows(ctx {{ .CtxPkg }}.Context, c {{ $q }}.Conn, m *{{ $q }}.
 		return rows, nil
 	}
 {{ range .Relations }}
-	if m.Has("{{ .ProtoName }}") {
+	if m.HasRelation("{{ .ProtoName }}") {
 		byKey := make(map[any][]*{{ $msg }}Result, len(rows))
 		for _, row := range rows {
 			key := {{ $q }}.Key({{ .OwnerKeyExpr }})
@@ -102,7 +102,9 @@ func Load{{ $msg }}Rows(ctx {{ .CtxPkg }}.Context, c {{ $q }}.Conn, m *{{ $q }}.
 }
 
 // Load{{ $msg }} selects {{ .TableName }} rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func Load{{ $msg }}(ctx {{ .CtxPkg }}.Context, c {{ $q }}.Conn, mask *{{ .FMPkg }}.FieldMask, conds ...{{ $q }}.Cond) ([]*{{ $msg }}, error) {
 	rows, err := Load{{ $msg }}Rows(ctx, c, {{ $q }}.FromFieldMask(mask), conds)
 	if err != nil {

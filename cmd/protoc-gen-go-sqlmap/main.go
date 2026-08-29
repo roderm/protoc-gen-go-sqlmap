@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 
@@ -23,16 +22,12 @@ func main() {
 		panic(err)
 	}
 
-	opts := protogen.Options{}
-
-	builder, err := sqlmap.New(opts, &request)
+	response, err := generate(&request)
 	if err != nil {
-		panic(err)
-	}
-
-	response, err := builder.Generate()
-	if err != nil {
-		panic(err)
+		// protoc expects a failed plugin to hand back a response carrying the
+		// message, so the compiler can report it. Panicking instead surfaces a
+		// Go stack trace and a bare "exit status 2" to the user.
+		response = &pluginpb.CodeGeneratorResponse{Error: proto.String(err.Error())}
 	}
 
 	out, err := proto.Marshal(response)
@@ -40,5 +35,15 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Fprint(os.Stdout, string(out))
+	if _, err := os.Stdout.Write(out); err != nil {
+		panic(err)
+	}
+}
+
+func generate(request *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorResponse, error) {
+	builder, err := sqlmap.New(protogen.Options{}, request)
+	if err != nil {
+		return nil, err
+	}
+	return builder.Generate()
 }

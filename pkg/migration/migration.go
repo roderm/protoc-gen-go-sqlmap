@@ -250,6 +250,14 @@ func parseType(dialect, raw string) (schema.Type, error) {
 // for this — each dialect models it differently (MySQL/SQLite: an explicit
 // column attribute; PostgreSQL: an identity-column attribute).
 func addAutoIncrement(dialect string, col *schema.Column) error {
+	// Every dialect restricts generated/auto-increment columns to integers.
+	// Catching it here turns a confusing failure from the database into a
+	// clear one naming the column -- PK_AUTO on a VARCHAR id is an easy
+	// mistake to make when the id is really an application-supplied UUID,
+	// which is what PK_MAN is for.
+	if _, ok := col.Type.Type.(*schema.IntegerType); !ok {
+		return fmt.Errorf("PK_AUTO requires an integer column, but %q is %T; use PK_MAN for an application-supplied key", col.Name, col.Type.Type)
+	}
 	switch dialect {
 	case DialectMySQL:
 		col.AddAttrs(&mysql.AutoIncrement{})

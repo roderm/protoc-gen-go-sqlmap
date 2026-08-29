@@ -134,7 +134,9 @@ func LoadSimpleRows(ctx context.Context, c query.Conn, m *query.Mask, conds []qu
 }
 
 // LoadSimple selects tbl_simple rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and no relations.
+// by mask. A nil or empty mask selects every column and loads no relations:
+// eager loading is always opt-in, so the mask alone decides how deep a load
+// goes.
 func LoadSimple(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Simple, error) {
 	rows, err := LoadSimpleRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {
