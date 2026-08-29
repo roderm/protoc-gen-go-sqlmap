@@ -21,6 +21,12 @@ var update = flag.Bool("update", false, "update golden files")
 // cmd/protoc-gen-go-sqlmap does, and returns the generated files keyed by
 // name.
 func generate(t *testing.T, protoFile string) map[string]string {
+	return generateWith(t, protoFile, "")
+}
+
+// buildRequest compiles protoFile (relative to testdata/) with protoc into a
+// CodeGeneratorRequest, with extra appended to the plugin parameter.
+func buildRequest(t *testing.T, protoFile, extra string) *pluginpb.CodeGeneratorRequest {
 	t.Helper()
 	if _, err := exec.LookPath("protoc"); err != nil {
 		t.Skip("protoc not found in PATH")
@@ -56,15 +62,25 @@ func generate(t *testing.T, protoFile string) map[string]string {
 		t.Fatal(err)
 	}
 
-	req := &pluginpb.CodeGeneratorRequest{
-		FileToGenerate: []string{protoFile},
-		Parameter: proto.String("paths=source_relative," +
-			"Msqlmap/v1/sqlmap.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1," +
-			"Mschema/v1/schema.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"),
-		ProtoFile: fds.File,
+	param := "paths=source_relative," +
+		"Msqlmap/v1/sqlmap.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1," +
+		"Mschema/v1/schema.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	if extra != "" {
+		param += "," + extra
 	}
+	return &pluginpb.CodeGeneratorRequest{
+		FileToGenerate: []string{protoFile},
+		Parameter:      proto.String(param),
+		ProtoFile:      fds.File,
+	}
+}
 
-	gen, err := New(protogen.Options{}, req)
+// generateWith runs protoFile through the generator exactly like
+// cmd/protoc-gen-go-sqlmap does, with extra appended to the plugin parameter,
+// and returns the generated files keyed by name.
+func generateWith(t *testing.T, protoFile, extra string) map[string]string {
+	t.Helper()
+	gen, err := New(protogen.Options{}, buildRequest(t, protoFile, extra))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,6 +146,15 @@ func TestGenerate_Relation(t *testing.T) {
 		t.Fatalf("no relation.sqlmap.go in generated output, got files: %v", fileNames(files))
 	}
 	compareGolden(t, "relation.sqlmap.go", got)
+}
+
+func TestGenerate_Eager(t *testing.T) {
+	files := generate(t, "eager.proto")
+	got, ok := files["eager.sqlmap.go"]
+	if !ok {
+		t.Fatalf("no eager.sqlmap.go in generated output, got files: %v", fileNames(files))
+	}
+	compareGolden(t, "eager.sqlmap.go", got)
 }
 
 func fileNames(files map[string]string) []string {

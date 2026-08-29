@@ -21,7 +21,8 @@ type {{ .Name }}Result struct {
 	{{- end }}
 }
 
-func (n *{{ .Name }}Result) Scan(cols []string, r *sql.Row) error {
+// Scan reads cols off r, which is satisfied by both *sql.Row and *sql.Rows.
+func (n *{{ .Name }}Result) Scan(cols []string, r interface{ Scan(dest ...any) error }) error {
 	values := make([]any, len(cols))
 	for i, col := range cols {
 	switch col {
@@ -112,10 +113,6 @@ func (s *SchemaWriter) Tables(tables ...*types.Table) error {
 }
 
 func (s *SchemaWriter) table(table *types.Table) error {
-	s.o.QualifiedGoIdent(protogen.GoIdent{
-		GoName:       "",
-		GoImportPath: "database/sql",
-	})
 	s.o.QualifiedGoIdent(protogen.GoIdent{
 		GoName:       "",
 		GoImportPath: "fmt",

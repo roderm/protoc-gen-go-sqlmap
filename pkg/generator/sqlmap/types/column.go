@@ -3,7 +3,6 @@ package types
 import (
 	"errors"
 	"fmt"
-	"slices"
 
 	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
@@ -39,6 +38,24 @@ func (c *Column) GetFieldname() string {
 
 func (c *Column) GetName() string {
 	return string(c.Field.GoName)
+}
+
+// GetProtoName returns the proto field name, which is what a FieldMask path
+// refers to.
+func (c *Column) GetProtoName() string {
+	return string(c.Field.Desc.Name())
+}
+
+// IsPrimaryKey reports whether the column is part of the primary key.
+func (c *Column) IsPrimaryKey() bool {
+	return c.Def.GetPk() != schemav1.PK_PK_UNSPECIFIED
+}
+
+// IsMessage reports whether the column's value is a reference stored as a
+// message field, which the scanner keeps as a raw fk_<column>_id value rather
+// than scanning into the message itself.
+func (c *Column) IsMessage() bool {
+	return c.Field.Desc.Kind() == protoreflect.MessageKind && c.Def.ForeignKey != nil
 }
 
 // IsNullable reports whether the column accepts NULL. An explicit `nullable`
@@ -81,27 +98,18 @@ func (c *Column) GetSqlType(repo TableRepo, dialect string) (string, error) {
 	case protoreflect.MessageKind:
 		if c.Def.ForeignKey != nil {
 			entity := string(c.Field.Message.Desc.Name())
-			var refCols []*Column
 			if c.Def.ForeignKey.Entity != nil {
 				entity = c.Def.ForeignKey.GetEntity()
 			}
-
 			tbl, ok := repo.GetByName(entity)
 			if !ok {
 				return "", fmt.Errorf("foreign key table '%s' not found", entity)
 			}
-			for _, ref := range tbl.GetColumns() {
-				if len(c.Def.ForeignKey.Fieldnames) != 0 {
-					if slices.Contains(c.Def.ForeignKey.Fieldnames, ref.GetName()) {
-						refCols = append(refCols, ref)
-					}
-				} else if ref.Def.GetPk() != schemav1.PK_PK_UNSPECIFIED {
-					refCols = append(refCols, ref)
-				}
+			refCols, err := ResolveRefColumns(tbl, c.Def.ForeignKey.GetFieldnames())
+			if err != nil {
+				return "", err
 			}
-			if len(refCols) == 0 {
-				return "", errors.New("no reference column found")
-			}
+			// A foreign key column inherits the type of what it points at.
 			return refCols[0].GetSqlType(repo, dialect)
 		}
 
