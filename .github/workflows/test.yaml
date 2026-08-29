@@ -1,18 +1,45 @@
 name: test
 on:
   push:
+  pull_request:
 
 jobs:
   run:
     name: test
-    runs-on: ["ubuntu-latest"]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
-      - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-      - uses: bufbuild/buf-setup-action@v0.6.0
-      - run: make install
-      - name: run tests
-        run: go test -run=.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The golden tests shell out to protoc; the end-to-end test additionally
+      # needs protoc-gen-go to build the base message types.
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pinned to the protobuf version in go.mod rather than @latest, so a
+      # release upstream can't silently change what CI generates.
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@$(go list -m -f '{{.Version}}' google.golang.org/protobuf)
+
+      # Note there is deliberately no `buf generate` here: pkg/generated is
+      # committed, and regenerating it would mean testing something other than
+      # what is in the repo.
+      - run: go build ./...
+
+      - run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      # Creates the schema against a throwaway PostgreSQL container, so it
+      # covers the DDL that pkg/migration actually emits. Docker is
+      # preinstalled on ubuntu-latest.
+      - name: End-to-end (dockerized PostgreSQL)
+        run: go test ./pkg/generator/sqlmap/ -run TestE2E -v
+        env:
+          SQLMAP_E2E: "1"
