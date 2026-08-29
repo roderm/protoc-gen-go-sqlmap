@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/relationpb";
+
+message Author {
+  option (sqlmap.v1.table) = { name: "tbl_author" };
+  optional int64 id = 1 [(sqlmap.v1.col) = { fieldname: "author_id", pk: PK_AUTO }];
+  optional string name = 2 [(sqlmap.v1.col) = { fieldname: "author_name" }];
+}
+
+message Book {
+  option (sqlmap.v1.table) = {
+    name: "tbl_book"
+    foreign_keys: [{
+      fieldnames: ["author_id"]
+      to: { entity: "Author", fieldnames: ["author_id"] }
+      on_delete: ON_DELETE_SET_NULL
+    }]
+  };
+  optional int64 id = 1 [(sqlmap.v1.col) = { fieldname: "book_id", pk: PK_AUTO }];
+  optional string title = 2 [(sqlmap.v1.col) = { fieldname: "book_title" }];
+  optional int64 author_id = 3 [(sqlmap.v1.col) = { fieldname: "author_id" }];
+}

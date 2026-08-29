@@ -17,6 +17,11 @@ message Column {
   optional schema.v1.PK pk = 2;
   map<string, string> type = 3;
   optional ForeignKey foreign_key = 4;
+
+  // Overrides the nullability otherwise derived from the proto field's
+  // presence. Unset means: NOT NULL for primary keys and for fields without
+  // explicit presence (a proto3 bare scalar), nullable otherwise.
+  optional bool nullable = 5;
 }
 
 extend google.protobuf.MessageOptions {

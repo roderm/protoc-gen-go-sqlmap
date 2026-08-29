@@ -15,7 +15,8 @@ var (
 			"postgres": "BIGINT",
 			"sqlite3":  "INTEGER",
 		},
-		Pk: v1.PK_PK_AUTO.Enum(),
+		Pk:       v1.PK_PK_AUTO.Enum(),
+		Nullable: proto.Bool(false),
 	}
 	SimpleColumnDef_Name = &v1.SchemaColumn{
 		Name: proto.String("simple_name"),
@@ -24,7 +25,8 @@ var (
 			"postgres": "VARCHAR(255)",
 			"sqlite3":  "VARCHAR(255)",
 		},
-		Pk: v1.PK_PK_UNSPECIFIED.Enum(),
+		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
+		Nullable: proto.Bool(true),
 	}
 )
 var SimpleTable = &v1.SchemaTable{

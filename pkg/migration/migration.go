@@ -178,7 +178,7 @@ func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Sch
 			if err != nil {
 				return nil, fmt.Errorf("migration: table %q column %q: %w", t.GetName(), c.GetName(), err)
 			}
-			ac := schema.NewColumn(c.GetName()).SetType(typ)
+			ac := schema.NewColumn(c.GetName()).SetType(typ).SetNull(c.GetNullable())
 			if c.GetPk() == schemav1.PK_PK_AUTO {
 				if err := addAutoIncrement(dialect, ac); err != nil {
 					return nil, fmt.Errorf("migration: table %q column %q: %w", t.GetName(), c.GetName(), err)
@@ -211,6 +211,13 @@ func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Sch
 			refCols, err := lookupColumns(colMap, fk.GetRefColumns())
 			if err != nil {
 				return nil, fmt.Errorf("migration: table %q: %w", t.GetName(), err)
+			}
+			if fk.GetOnDelete() == schemav1.OnDelete_ON_DELETE_SET_NULL {
+				for _, c := range cols {
+					if !c.Type.Null {
+						return nil, fmt.Errorf("migration: table %q: foreign key column %q is NOT NULL but ON DELETE SET NULL was requested", t.GetName(), c.Name)
+					}
+				}
 			}
 			afk := schema.NewForeignKey(fmt.Sprintf("%s_%s_fk", t.GetName(), refTbl.Name)).
 				AddColumns(cols...).

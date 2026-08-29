@@ -1,0 +1,186 @@
+package relationpb
+
+import (
+	sql "database/sql"
+	fmt "fmt"
+	v1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	proto "google.golang.org/protobuf/proto"
+)
+
+var (
+	AuthorColumnDef_Id = &v1.SchemaColumn{
+		Name: proto.String("author_id"),
+		Type: map[string]string{
+			"mysql":    "BIGINT",
+			"postgres": "BIGINT",
+			"sqlite3":  "INTEGER",
+		},
+		Pk:       v1.PK_PK_AUTO.Enum(),
+		Nullable: proto.Bool(false),
+	}
+	AuthorColumnDef_Name = &v1.SchemaColumn{
+		Name: proto.String("author_name"),
+		Type: map[string]string{
+			"mysql":    "VARCHAR(255)",
+			"postgres": "VARCHAR(255)",
+			"sqlite3":  "VARCHAR(255)",
+		},
+		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
+		Nullable: proto.Bool(true),
+	}
+)
+var AuthorTable = &v1.SchemaTable{
+	Name: proto.String("tbl_author"),
+	Columns: []*v1.SchemaColumn{
+		AuthorColumnDef_Id,
+		AuthorColumnDef_Name,
+	},
+}
+
+func init() {
+}
+
+var (
+	BookColumnDef_Id = &v1.SchemaColumn{
+		Name: proto.String("book_id"),
+		Type: map[string]string{
+			"mysql":    "BIGINT",
+			"postgres": "BIGINT",
+			"sqlite3":  "INTEGER",
+		},
+		Pk:       v1.PK_PK_AUTO.Enum(),
+		Nullable: proto.Bool(false),
+	}
+	BookColumnDef_Title = &v1.SchemaColumn{
+		Name: proto.String("book_title"),
+		Type: map[string]string{
+			"mysql":    "VARCHAR(255)",
+			"postgres": "VARCHAR(255)",
+			"sqlite3":  "VARCHAR(255)",
+		},
+		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
+		Nullable: proto.Bool(true),
+	}
+	BookColumnDef_AuthorId = &v1.SchemaColumn{
+		Name: proto.String("author_id"),
+		Type: map[string]string{
+			"mysql":    "BIGINT",
+			"postgres": "BIGINT",
+			"sqlite3":  "INTEGER",
+		},
+		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
+		Nullable: proto.Bool(true),
+	}
+)
+var BookTable = &v1.SchemaTable{
+	Name: proto.String("tbl_book"),
+	Columns: []*v1.SchemaColumn{
+		BookColumnDef_Id,
+		BookColumnDef_Title,
+		BookColumnDef_AuthorId,
+	},
+}
+
+func init() {
+	BookTable.ForeignKeys = append(BookTable.ForeignKeys, &v1.SchemaForeignKey{
+		Columns: []*v1.SchemaColumn{
+			BookColumnDef_AuthorId,
+		},
+		RefTable: AuthorTable,
+		RefColumns: []*v1.SchemaColumn{
+			AuthorColumnDef_Id,
+		},
+		OnDelete: v1.OnDelete_ON_DELETE_SET_NULL.Enum(),
+	})
+}
+
+type AuthorResult struct {
+	Author
+}
+
+func (n *AuthorResult) Scan(cols []string, r *sql.Row) error {
+	values := make([]any, len(cols))
+	for i, col := range cols {
+		switch col {
+		case "author_id":
+			values[i] = &n.Id
+		case "author_name":
+			values[i] = &n.Name
+		default:
+			return fmt.Errorf("unknown column '%s'", col)
+		}
+	}
+	return r.Scan(values...)
+}
+
+func (n *Author) GetColValue(col string) any {
+	switch col {
+	case "author_id":
+		return n.Id
+	case "author_name":
+		return n.Name
+	default:
+		return nil
+	}
+}
+
+func GetAuthorPKColumns() []string {
+	return []string{
+		"author_id",
+	}
+}
+
+func GetAuthorColumns() []string {
+	return []string{
+		"author_id",
+		"author_name",
+	}
+}
+
+type BookResult struct {
+	Book
+}
+
+func (n *BookResult) Scan(cols []string, r *sql.Row) error {
+	values := make([]any, len(cols))
+	for i, col := range cols {
+		switch col {
+		case "book_id":
+			values[i] = &n.Id
+		case "book_title":
+			values[i] = &n.Title
+		case "author_id":
+			values[i] = &n.AuthorId
+		default:
+			return fmt.Errorf("unknown column '%s'", col)
+		}
+	}
+	return r.Scan(values...)
+}
+
+func (n *Book) GetColValue(col string) any {
+	switch col {
+	case "book_id":
+		return n.Id
+	case "book_title":
+		return n.Title
+	case "author_id":
+		return n.AuthorId
+	default:
+		return nil
+	}
+}
+
+func GetBookPKColumns() []string {
+	return []string{
+		"book_id",
+	}
+}
+
+func GetBookColumns() []string {
+	return []string{
+		"book_id",
+		"book_title",
+		"author_id",
+	}
+}

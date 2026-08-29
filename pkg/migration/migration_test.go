@@ -122,4 +122,57 @@ func TestToSchema_MissingReferencedTable(t *testing.T) {
 	}
 }
 
+func TestToSchema_Nullability(t *testing.T) {
+	id := newCol("id", schemav1.PK_PK_AUTO)
+	nullable := newCol("nick", schemav1.PK_PK_UNSPECIFIED)
+	nullable.Nullable = boolPtr(true)
+	notNull := newCol("name", schemav1.PK_PK_UNSPECIFIED)
+
+	tbl := &schemav1.SchemaTable{
+		Name:    strPtr("tbl"),
+		Columns: []*schemav1.SchemaColumn{id, nullable, notNull},
+	}
+	sch, err := toSchema(DialectPostgres, "public", []*schemav1.SchemaTable{tbl})
+	if err != nil {
+		t.Fatalf("toSchema: %v", err)
+	}
+	at, _ := sch.Table("tbl")
+
+	for name, want := range map[string]bool{"id": false, "nick": true, "name": false} {
+		col, ok := at.Column(name)
+		if !ok {
+			t.Fatalf("column %q not found", name)
+		}
+		if col.Type.Null != want {
+			t.Errorf("column %q Null = %v, want %v", name, col.Type.Null, want)
+		}
+	}
+}
+
+func TestToSchema_SetNullOnNotNullColumnRejected(t *testing.T) {
+	parentID := newCol("parent_id", schemav1.PK_PK_AUTO)
+	parent := &schemav1.SchemaTable{
+		Name:    strPtr("tbl_parent"),
+		Columns: []*schemav1.SchemaColumn{parentID},
+	}
+
+	// Deliberately NOT nullable, while the FK asks for ON DELETE SET NULL.
+	childParentID := newCol("parent_id", schemav1.PK_PK_UNSPECIFIED)
+	child := &schemav1.SchemaTable{
+		Name:    strPtr("tbl_child"),
+		Columns: []*schemav1.SchemaColumn{childParentID},
+		ForeignKeys: []*schemav1.SchemaForeignKey{{
+			Columns:    []*schemav1.SchemaColumn{childParentID},
+			RefTable:   parent,
+			RefColumns: []*schemav1.SchemaColumn{parentID},
+			OnDelete:   schemav1.OnDelete_ON_DELETE_SET_NULL.Enum(),
+		}},
+	}
+
+	if _, err := toSchema(DialectPostgres, "public", []*schemav1.SchemaTable{parent, child}); err == nil {
+		t.Fatal("expected an error for ON DELETE SET NULL on a NOT NULL column, got nil")
+	}
+}
+
 func strPtr(s string) *string { return &s }
+func boolPtr(b bool) *bool    { return &b }

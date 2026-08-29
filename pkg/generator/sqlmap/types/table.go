@@ -19,6 +19,22 @@ func (r TableRepo) GetByName(name string) (*Table, bool) {
 	return nil, false
 }
 
+// ForFile returns the tables whose message is declared in f, preserving repo
+// order. Writers use it to emit only the tables belonging to the file they are
+// currently generating, while still having the full repo for FK lookups.
+func (r TableRepo) ForFile(f *protogen.File) []*Table {
+	var out []*Table
+	for _, tbl := range r {
+		for _, msg := range f.Messages {
+			if tbl.Msg.Desc.FullName() == msg.Desc.FullName() {
+				out = append(out, tbl)
+				break
+			}
+		}
+	}
+	return out
+}
+
 type Table struct {
 	Def     *sqlmapv1.Table
 	File    *protogen.File

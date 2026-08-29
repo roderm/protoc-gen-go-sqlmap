@@ -1,12 +1,10 @@
 module github.com/roderm/protoc-gen-go-sqlmap
 
-go 1.25
-
-require google.golang.org/protobuf v1.36.11
+go 1.27
 
 require (
 	ariga.io/atlas v0.36.2-0.20250730182955-2c6300d0a3e1
-	github.com/samber/lo v1.53.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (

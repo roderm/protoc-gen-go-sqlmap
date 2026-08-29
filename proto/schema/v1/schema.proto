@@ -18,6 +18,7 @@ message SchemaColumn {
   optional string name = 1;
   map<string, string> type = 2;
   optional PK pk = 3;
+  optional bool nullable = 4;
 }
 
 message SchemaForeignKey {

@@ -15,7 +15,8 @@ var (
 			"postgres": "VARCHAR(255)",
 			"sqlite3":  "VARCHAR(255)",
 		},
-		Pk: v1.PK_PK_AUTO.Enum(),
+		Pk:       v1.PK_PK_AUTO.Enum(),
+		Nullable: proto.Bool(false),
 	}
 )
 var ParentTable = &v1.SchemaTable{
@@ -36,7 +37,8 @@ var (
 			"postgres": "VARCHAR(255)",
 			"sqlite3":  "VARCHAR(255)",
 		},
-		Pk: v1.PK_PK_AUTO.Enum(),
+		Pk:       v1.PK_PK_AUTO.Enum(),
+		Nullable: proto.Bool(false),
 	}
 	ChildColumnDef_Parent = &v1.SchemaColumn{
 		Name: proto.String("parent_id"),
@@ -45,7 +47,8 @@ var (
 			"postgres": "VARCHAR(255)",
 			"sqlite3":  "VARCHAR(255)",
 		},
-		Pk: v1.PK_PK_UNSPECIFIED.Enum(),
+		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
+		Nullable: proto.Bool(true),
 	}
 )
 var ChildTable = &v1.SchemaTable{

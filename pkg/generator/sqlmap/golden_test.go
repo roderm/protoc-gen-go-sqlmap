@@ -123,6 +123,15 @@ func TestGenerate_ForeignKey(t *testing.T) {
 	compareGolden(t, "foreignkey.sqlmap.go", got)
 }
 
+func TestGenerate_Relation(t *testing.T) {
+	files := generate(t, "relation.proto")
+	got, ok := files["relation.sqlmap.go"]
+	if !ok {
+		t.Fatalf("no relation.sqlmap.go in generated output, got files: %v", fileNames(files))
+	}
+	compareGolden(t, "relation.sqlmap.go", got)
+}
+
 func fileNames(files map[string]string) []string {
 	names := make([]string, 0, len(files))
 	for name := range files {

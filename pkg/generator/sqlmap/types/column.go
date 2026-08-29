@@ -3,10 +3,10 @@ package types
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
-	"github.com/samber/lo"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -39,6 +39,21 @@ func (c *Column) GetFieldname() string {
 
 func (c *Column) GetName() string {
 	return string(c.Field.GoName)
+}
+
+// IsNullable reports whether the column accepts NULL. An explicit `nullable`
+// in the column option wins; otherwise it follows the proto field's presence,
+// which is the closest proto-native notion of "may be absent": proto2
+// optional, proto3 optional and message fields have presence, a proto3 bare
+// scalar does not. Primary keys are never nullable.
+func (c *Column) IsNullable() bool {
+	if c.Def.Nullable != nil {
+		return c.Def.GetNullable()
+	}
+	if c.Def.GetPk() != schemav1.PK_PK_UNSPECIFIED {
+		return false
+	}
+	return c.Field.Desc.HasPresence()
 }
 
 func (c *Column) GetSqlType(repo TableRepo, dialect string) (string, error) {
@@ -75,20 +90,19 @@ func (c *Column) GetSqlType(repo TableRepo, dialect string) (string, error) {
 			if !ok {
 				return "", fmt.Errorf("foreign key table '%s' not found", entity)
 			}
-			if len(c.Def.ForeignKey.Fieldnames) != 0 {
-				refCols = lo.Filter(tbl.GetColumns(), func(ref *Column, _ int) bool {
-					return lo.Contains(c.Def.ForeignKey.Fieldnames, string(ref.GetName()))
-				})
-			} else {
-				refCols = lo.Filter(tbl.GetColumns(), func(c *Column, _ int) bool {
-					return c.Def.Pk != nil && c.Def.Pk != schemav1.PK_PK_UNSPECIFIED.Enum()
-				})
+			for _, ref := range tbl.GetColumns() {
+				if len(c.Def.ForeignKey.Fieldnames) != 0 {
+					if slices.Contains(c.Def.ForeignKey.Fieldnames, ref.GetName()) {
+						refCols = append(refCols, ref)
+					}
+				} else if ref.Def.GetPk() != schemav1.PK_PK_UNSPECIFIED {
+					refCols = append(refCols, ref)
+				}
 			}
-			col, ok := lo.First(refCols)
-			if !ok {
+			if len(refCols) == 0 {
 				return "", errors.New("no reference column found")
 			}
-			return col.GetSqlType(repo, dialect)
+			return refCols[0].GetSqlType(repo, dialect)
 		}
 
 		return "JSON", nil

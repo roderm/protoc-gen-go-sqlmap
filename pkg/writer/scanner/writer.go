@@ -7,7 +7,6 @@ import (
 	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
 	"github.com/roderm/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
 	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer"
-	"github.com/samber/lo"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -100,16 +99,7 @@ func New(g writer.Printer, repo types.TableRepo) writer.Writer {
 }
 
 func (s *SchemaWriter) Write(protoFile *protogen.File) error {
-	entities := lo.FilterMap(protoFile.Messages, func(msg *protogen.Message, _ int) (protoreflect.FullName, bool) {
-		return msg.Desc.FullName(), true
-	})
-	tables := lo.Filter(s.repo, func(table *types.Table, _ int) bool {
-		return lo.Contains(entities, table.Msg.Desc.FullName())
-	})
-	if err := s.Tables(tables...); err != nil {
-		return err
-	}
-	return nil
+	return s.Tables(s.repo.ForFile(protoFile)...)
 }
 
 func (s *SchemaWriter) Tables(tables ...*types.Table) error {
@@ -130,19 +120,15 @@ func (s *SchemaWriter) table(table *types.Table) error {
 		GoName:       "",
 		GoImportPath: "fmt",
 	})
-	tbl := Table{
-		Name: table.GetMessageName(),
-
-		Columns: lo.FilterMap(table.GetColumns(), func(c *types.Column, _ int) (*Column, bool) {
-			column := &Column{
-				IsPrimaryKey: c.Def.Pk != nil && c.Def.Pk != schemav1.PK_PK_UNSPECIFIED.Enum(),
-				MessageName:  c.GetName(),
-				FieldName:    c.GetFieldname(),
-				IsMessage:    c.Field.Desc.Kind() == protoreflect.MessageKind && c.Def.ForeignKey != nil,
-				FK:           c.Def.GetForeignKey(),
-			}
-			return column, true
-		}),
+	tbl := Table{Name: table.GetMessageName()}
+	for _, c := range table.GetColumns() {
+		tbl.Columns = append(tbl.Columns, &Column{
+			IsPrimaryKey: c.Def.GetPk() != schemav1.PK_PK_UNSPECIFIED,
+			MessageName:  c.GetName(),
+			FieldName:    c.GetFieldname(),
+			IsMessage:    c.Field.Desc.Kind() == protoreflect.MessageKind && c.Def.ForeignKey != nil,
+			FK:           c.Def.GetForeignKey(),
+		})
 	}
 	return tpl.Execute(s.o, tbl)
 }

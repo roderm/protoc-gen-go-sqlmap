@@ -6,14 +6,15 @@ import (
 	"strings"
 
 	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
-	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
 
 	"github.com/roderm/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
 	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer"
-	"github.com/samber/lo"
 	"google.golang.org/protobuf/compiler/protogen"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
+
+// dialects is the set of SQL dialects every generated column carries a
+// SchemaType entry for, so one generated file serves any of them at runtime.
+var dialects = []string{"mysql", "postgres", "sqlite3"}
 
 // schemaV1ImportPath is the generated Go package holding SchemaTable/SchemaColumn/
 // SchemaForeignKey and the PK/OnDelete enums that this writer emits into.
@@ -36,6 +37,7 @@ var (
 			{{ end }}
 		},
 		Pk: {{ $pkg }}.{{ .Pk }}.Enum(),
+		Nullable: {{ $proto }}.Bool({{ .Nullable }}),
 	}
 {{- end }}
 )
@@ -71,10 +73,11 @@ func init() {
 `
 
 type Column struct {
-	Name    string // Go identifier suffix for the ColumnDef_ var, e.g. "Id"
-	SQLName string // actual SQL column name, e.g. "simple_id"
-	Type    map[string]string
-	Pk      string
+	Name     string // Go identifier suffix for the ColumnDef_ var, e.g. "Id"
+	SQLName  string // actual SQL column name, e.g. "simple_id"
+	Type     map[string]string
+	Pk       string
+	Nullable bool
 }
 
 type Table struct {
@@ -130,16 +133,7 @@ func New(g writer.Printer, repo types.TableRepo) writer.Writer {
 }
 
 func (s *SchemaWriter) Write(protoFile *protogen.File) error {
-	entities := lo.FilterMap(protoFile.Messages, func(msg *protogen.Message, _ int) (protoreflect.FullName, bool) {
-		return msg.Desc.FullName(), true
-	})
-	tables := lo.Filter(s.repo, func(table *types.Table, _ int) bool {
-		return lo.Contains(entities, table.Msg.Desc.FullName())
-	})
-	if err := s.Tables(tables...); err != nil {
-		return err
-	}
-	return nil
+	return s.Tables(s.repo.ForFile(protoFile)...)
 }
 
 func (s *SchemaWriter) Tables(tables ...*types.Table) error {
@@ -166,58 +160,66 @@ func (s *SchemaWriter) table(table *types.Table) error {
 		TableName: table.GetTableName(),
 		SchemaPkg: schemaPkg,
 		ProtoPkg:  protoPkg,
-		ForeignKeys: lo.Map(table.GetForeignKeys(), func(fk *sqlmapv1.ForeignKeyDefinition, _ int) *ForeignKey {
-			refTable, ok := s.repo.GetByName(fk.To.GetEntity())
-			if !ok {
-				return nil
-			}
-			tableName := fmt.Sprintf("%sTable", refTable.GetMessageName())
-			if refTable.File.GoImportPath != table.File.GoImportPath {
-				tableName = s.o.QualifiedGoIdent(protogen.GoIdent{
-					GoName:       tableName,
-					GoImportPath: refTable.File.GoImportPath,
-				})
-			}
-			return &ForeignKey{
-				Columns: lo.Map(fk.GetFieldnames(), func(c string, _ int) string {
-					f, ok := table.GetColumnByFieldName(c)
-					if !ok {
-						return ""
-					}
-					return fmt.Sprintf("%sColumnDef_%s", table.GetMessageName(), f.GetName())
-				}),
-				ReferencedTable: tableName,
-				ReferencedColumns: lo.Map(fk.To.GetFieldnames(), func(c string, _ int) string {
-					f, ok := refTable.GetColumnByFieldName(c)
-					if !ok {
-						return ""
-					}
-					name := fmt.Sprintf("%sColumnDef_%s", refTable.GetMessageName(), f.GetName())
-					if refTable.File.GoImportPath != table.File.GoImportPath {
-						return s.o.QualifiedGoIdent(protogen.GoIdent{
-							GoName:       name,
-							GoImportPath: refTable.File.GoImportPath,
-						})
-					}
-					return name
-				}),
-				OnDelete: onDeleteGoIdent(fk.GetOnDelete()),
-			}
-		}),
-		Columns: lo.FilterMap(table.GetColumns(), func(c *types.Column, _ int) (*Column, bool) {
-			return &Column{
-				Name:    c.GetName(),
-				SQLName: c.GetFieldname(),
-				Pk:      pkGoIdent(c.Def.GetPk()),
-				Type: lo.SliceToMap([]string{"mysql", "postgres", "sqlite3"}, func(d string) (string, string) {
-					t, err := c.GetSqlType(s.repo, d)
-					if err != nil {
-						return d, "unknown[err: " + err.Error() + "]"
-					}
-					return d, t
-				}),
-			}, true
-		}),
 	}
+
+	for _, c := range table.GetColumns() {
+		col := &Column{
+			Name:     c.GetName(),
+			SQLName:  c.GetFieldname(),
+			Pk:       pkGoIdent(c.Def.GetPk()),
+			Nullable: c.IsNullable(),
+			Type:     make(map[string]string, len(dialects)),
+		}
+		for _, d := range dialects {
+			t, err := c.GetSqlType(s.repo, d)
+			if err != nil {
+				return fmt.Errorf("table %q column %q (%s): %w", table.GetTableName(), c.GetName(), d, err)
+			}
+			col.Type[d] = t
+		}
+		tbl.Columns = append(tbl.Columns, col)
+	}
+
+	for _, fk := range table.GetForeignKeys() {
+		refTable, ok := s.repo.GetByName(fk.To.GetEntity())
+		if !ok {
+			return fmt.Errorf("table %q: foreign key references unknown entity %q", table.GetTableName(), fk.To.GetEntity())
+		}
+		external := refTable.File.GoImportPath != table.File.GoImportPath
+
+		out := &ForeignKey{
+			ReferencedTable: s.colDefIdent(refTable, fmt.Sprintf("%sTable", refTable.GetMessageName()), external),
+			OnDelete:        onDeleteGoIdent(fk.GetOnDelete()),
+		}
+		for _, name := range fk.GetFieldnames() {
+			f, ok := table.GetColumnByFieldName(name)
+			if !ok {
+				return fmt.Errorf("table %q: foreign key column %q not found", table.GetTableName(), name)
+			}
+			out.Columns = append(out.Columns, fmt.Sprintf("%sColumnDef_%s", table.GetMessageName(), f.GetName()))
+		}
+		for _, name := range fk.To.GetFieldnames() {
+			f, ok := refTable.GetColumnByFieldName(name)
+			if !ok {
+				return fmt.Errorf("table %q: referenced column %q not found on %q", table.GetTableName(), name, refTable.GetTableName())
+			}
+			ident := fmt.Sprintf("%sColumnDef_%s", refTable.GetMessageName(), f.GetName())
+			out.ReferencedColumns = append(out.ReferencedColumns, s.colDefIdent(refTable, ident, external))
+		}
+		tbl.ForeignKeys = append(tbl.ForeignKeys, out)
+	}
+
 	return tpl.Execute(s.o, tbl)
+}
+
+// colDefIdent qualifies ident with refTable's import path when the referenced
+// table lives in another Go package, so cross-file foreign keys compile.
+func (s *SchemaWriter) colDefIdent(refTable *types.Table, ident string, external bool) string {
+	if !external {
+		return ident
+	}
+	return s.o.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       ident,
+		GoImportPath: refTable.File.GoImportPath,
+	})
 }
