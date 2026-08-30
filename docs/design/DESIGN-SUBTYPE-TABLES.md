@@ -189,6 +189,14 @@ message SchemaTable {
 
 These are worth having regardless — they are the same primitives the outstanding "no indexes, no unique constraints, no defaults" gap needs, so this design pays for that too.
 
+`SchemaCheck.expr` is a per-dialect map rather than one string, because identifier quoting is not portable and getting it wrong on MySQL fails *silently*. Without `ANSI_QUOTES`, MySQL reads `"kind"` as a string literal, so
+
+```sql
+CHECK ("kind" = 'person')
+```
+
+is accepted at DDL time and stored as `CHECK ((_latin1'kind' = _latin1'person'))` — a comparison of two constants, false for every row, making the table impossible to insert into. Enabling `ANSI_QUOTES` would paper over it but changes SQL parsing for the whole application and has to be set whenever the DDL is applied; emitting backticks for MySQL is the actual fix.
+
 `ariga/atlas` already has everything on the receiving side: `schema.NewCheck()` / `Table.AddChecks()`, `schema.NewUniqueIndex()`, and composite foreign keys, which `toSchema` builds already.
 
 ## Why this is also the fix for eager loading

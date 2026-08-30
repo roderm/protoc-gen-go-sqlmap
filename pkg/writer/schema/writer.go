@@ -7,6 +7,7 @@ package schema
 // stayed hidden until a value first contained a quote.
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -44,7 +45,7 @@ var (
 		Pk: {{ $pkg }}.{{ .Pk }}.Enum(),
 		Nullable: {{ $proto }}.Bool({{ .Nullable }}),
 		{{- if .DefaultExpr }}
-		DefaultExpr: {{ $proto }}.String(` + "`" + `{{ .DefaultExpr }}` + "`" + `),
+		DefaultExpr: {{ $proto }}.String({{ q .DefaultExpr }}),
 		{{- end }}
 	}
 {{- end }}
@@ -61,7 +62,11 @@ var {{ $msg }}Table = &{{ $pkg }}.SchemaTable{
 		{{- range .Checks }}
 		{
 			Name: {{ $proto }}.String("{{ .Name }}"),
-			Expr: {{ $proto }}.String(` + "`" + `{{ .Expr }}` + "`" + `),
+			Expr: map[string]string{
+				{{- range $k, $v := .Expr }}
+				"{{ $k }}": {{ q $v }},
+				{{- end }}
+			},
 		},
 		{{- end }}
 	},
@@ -117,7 +122,10 @@ type Column struct {
 
 type Check struct {
 	Name string
-	Expr string
+	// Expr is the SQL expression per dialect: identifier quoting differs, and
+	// getting it wrong on MySQL yields a silently always-false constraint
+	// rather than an error.
+	Expr map[string]string
 }
 
 type Index struct {
@@ -170,7 +178,13 @@ func onDeleteGoIdent(od schemav1.OnDelete) string {
 	}
 }
 
-var tpl = template.Must(template.New("schema").Parse(templateStr))
+// q renders a Go string literal. SQL fragments carry quotes of their own --
+// double quotes for PostgreSQL identifiers, backticks for MySQL ones -- and a
+// backtick cannot appear inside a Go raw string at all, so these have to be
+// escaped properly rather than wrapped.
+var tplFuncs = template.FuncMap{"q": strconv.Quote}
+
+var tpl = template.Must(template.New("schema").Funcs(tplFuncs).Parse(templateStr))
 
 type SchemaWriter struct {
 	o    writer.Printer
@@ -315,7 +329,9 @@ func (s *SchemaWriter) superTable(table *types.Table, tbl *Table) error {
 	}
 	tbl.Checks = append(tbl.Checks, &Check{
 		Name: fmt.Sprintf("%s_%s_check", table.GetTableName(), name),
-		Expr: fmt.Sprintf("%s IN (%s)", quoteIdent(name), strings.Join(values, ", ")),
+		Expr: perDialect(func(d string) string {
+			return fmt.Sprintf("%s IN (%s)", quoteIdent(d, name), strings.Join(values, ", "))
+		}),
 	})
 
 	// A foreign key can only reference a uniquely-constrained column set, so
@@ -353,7 +369,9 @@ func (s *SchemaWriter) subTable(table *types.Table, tbl *Table) error {
 	tbl.Columns = append(tbl.Columns, s.discriminatorColumn(table, h, sub.Value))
 	tbl.Checks = append(tbl.Checks, &Check{
 		Name: fmt.Sprintf("%s_%s_check", table.GetTableName(), name),
-		Expr: fmt.Sprintf("%s = %s", quoteIdent(name), sqlLiteral(sub.Value)),
+		Expr: perDialect(func(d string) string {
+			return fmt.Sprintf("%s = %s", quoteIdent(d, name), sqlLiteral(sub.Value))
+		}),
 	})
 
 	external := super.File.GoImportPath != table.File.GoImportPath
@@ -400,11 +418,27 @@ func sqlLiteral(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 }
 
-// quoteIdent quotes an identifier for use inside a CHECK expression. Double
-// quotes are the SQL standard and work on PostgreSQL and SQLite; MySQL accepts
-// them only with ANSI_QUOTES, which is why check expressions are documented as
-// having to be valid in every dialect they are used with.
-func quoteIdent(s string) string {
+// perDialect builds the same expression for every supported dialect.
+func perDialect(build func(dialect string) string) map[string]string {
+	out := make(map[string]string, len(dialects))
+	for _, d := range dialects {
+		out[d] = build(d)
+	}
+	return out
+}
+
+// quoteIdent quotes an identifier for use inside a CHECK expression.
+//
+// MySQL needs backticks. Double quotes are not merely a different spelling
+// there: without ANSI_QUOTES they denote a *string literal*, so
+// CHECK ("kind" = 'person') is accepted at DDL time and stored as
+// CHECK ('kind' = 'person') -- constant false, rejecting every row. A silent
+// trap rather than an error, which is why quoting is resolved per dialect
+// rather than left to the database's mode.
+func quoteIdent(dialect, s string) string {
+	if dialect == "mysql" {
+		return "`" + strings.ReplaceAll(s, "`", "``") + "`"
+	}
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 

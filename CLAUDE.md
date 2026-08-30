@@ -95,6 +95,8 @@ Since a supertype row holds exactly one discriminator value, only one subtype ta
 
 The discriminator has no proto field, so its Go var is `<Msg>DiscriminatorColumn` rather than `<Msg>ColumnDef_<Name>`, to avoid colliding with a real field. A subtype's key columns must *not* also declare a `foreign_key` — `subtype_of` implies it, and a single-column FK would be wrong.
 
+`SchemaCheck.expr` is a **per-dialect map**, like a column's type: PostgreSQL/SQLite quote identifiers with `"`, MySQL with backticks. This is not cosmetic — without `ANSI_QUOTES`, MySQL reads `"kind"` as a *string literal*, so `CHECK ("kind" = 'person')` is accepted at DDL time, stored as `CHECK ('kind' = 'person')`, and then rejects every row. `toSchema` errors if a check has no expression for the dialect being applied rather than falling back. Emitted SQL fragments go through the template's `q` function (`strconv.Quote`), since a MySQL expression contains backticks and cannot sit in a Go raw string.
+
 ### Proto extensions (`proto/sqlmap/v1/sqlmap.proto`)
 
 Note this is `syntax = "proto2"` — extension fields are `optional`/`required`, and the pattern for "is this set" is `Def.Field != nil` rather than zero-value checks.

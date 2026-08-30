@@ -197,7 +197,11 @@ func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Sch
 			at.SetPrimaryKey(schema.NewPrimaryKey(pk...))
 		}
 		for _, chk := range t.GetChecks() {
-			at.AddChecks(schema.NewCheck().SetName(chk.GetName()).SetExpr(chk.GetExpr()))
+			expr, ok := chk.GetExpr()[dialect]
+			if !ok {
+				return nil, fmt.Errorf("migration: table %q check %q has no expression for dialect %q", t.GetName(), chk.GetName(), dialect)
+			}
+			at.AddChecks(schema.NewCheck().SetName(chk.GetName()).SetExpr(expr))
 		}
 		for _, idx := range t.GetIndexes() {
 			cols, err := lookupColumns(colMap, idx.GetColumns())

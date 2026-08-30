@@ -40,7 +40,11 @@ var IdentityTable = &v1.SchemaTable{
 	Checks: []*v1.SchemaCheck{
 		{
 			Name: proto.String("identity_kind_check"),
-			Expr: proto.String(`"kind" IN ('person', 'org')`),
+			Expr: map[string]string{
+				"mysql":    "`kind` IN ('person', 'org')",
+				"postgres": "\"kind\" IN ('person', 'org')",
+				"sqlite3":  "\"kind\" IN ('person', 'org')",
+			},
 		},
 	},
 	Indexes: []*v1.SchemaIndex{
@@ -88,7 +92,7 @@ var (
 		},
 		Pk:          v1.PK_PK_UNSPECIFIED.Enum(),
 		Nullable:    proto.Bool(false),
-		DefaultExpr: proto.String(`'person'`),
+		DefaultExpr: proto.String("'person'"),
 	}
 )
 var PersonTable = &v1.SchemaTable{
@@ -101,7 +105,11 @@ var PersonTable = &v1.SchemaTable{
 	Checks: []*v1.SchemaCheck{
 		{
 			Name: proto.String("person_kind_check"),
-			Expr: proto.String(`"kind" = 'person'`),
+			Expr: map[string]string{
+				"mysql":    "`kind` = 'person'",
+				"postgres": "\"kind\" = 'person'",
+				"sqlite3":  "\"kind\" = 'person'",
+			},
 		},
 	},
 }
@@ -151,7 +159,7 @@ var (
 		},
 		Pk:          v1.PK_PK_UNSPECIFIED.Enum(),
 		Nullable:    proto.Bool(false),
-		DefaultExpr: proto.String(`'org'`),
+		DefaultExpr: proto.String("'org'"),
 	}
 )
 var OrganisationTable = &v1.SchemaTable{
@@ -164,7 +172,11 @@ var OrganisationTable = &v1.SchemaTable{
 	Checks: []*v1.SchemaCheck{
 		{
 			Name: proto.String("organisation_kind_check"),
-			Expr: proto.String(`"kind" = 'org'`),
+			Expr: map[string]string{
+				"mysql":    "`kind` = 'org'",
+				"postgres": "\"kind\" = 'org'",
+				"sqlite3":  "\"kind\" = 'org'",
+			},
 		},
 	},
 }

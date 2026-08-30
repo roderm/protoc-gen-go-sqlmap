@@ -210,7 +210,10 @@ func TestToSchema_ChecksIndexesAndDefaults(t *testing.T) {
 		Columns: []*schemav1.SchemaColumn{id, kind},
 		Checks: []*schemav1.SchemaCheck{{
 			Name: strPtr("person_kind_check"),
-			Expr: strPtr(`"kind" = 'person'`),
+			Expr: map[string]string{
+				DialectPostgres: `"kind" = 'person'`,
+				DialectMySQL:    "`kind` = 'person'",
+			},
 		}},
 		Indexes: []*schemav1.SchemaIndex{{
 			Name:    strPtr("person_kind_key"),
@@ -258,6 +261,55 @@ func TestToSchema_ChecksIndexesAndDefaults(t *testing.T) {
 	}
 	if raw.X != "'person'" {
 		t.Errorf("default = %q, want %q", raw.X, "'person'")
+	}
+}
+
+// A check has to carry an expression for the dialect being applied. Falling
+// back to another dialect's would be worse than failing: MySQL reads a
+// double-quoted identifier as a string literal, so the constraint would be
+// accepted and then reject every row.
+func TestToSchema_CheckPicksTheDialectExpression(t *testing.T) {
+	id := newCol("id", schemav1.PK_PK_MAN)
+	id.Type = map[string]string{
+		DialectPostgres: "VARCHAR(64)",
+		DialectMySQL:    "VARCHAR(64)",
+		DialectSQLite:   "VARCHAR(64)",
+	}
+	tbl := &schemav1.SchemaTable{
+		Name:    strPtr("person"),
+		Columns: []*schemav1.SchemaColumn{id},
+		Checks: []*schemav1.SchemaCheck{{
+			Name: strPtr("person_kind_check"),
+			Expr: map[string]string{
+				DialectPostgres: `"kind" = 'person'`,
+				DialectMySQL:    "`kind` = 'person'",
+			},
+		}},
+	}
+
+	for dialect, want := range map[string]string{
+		DialectPostgres: `"kind" = 'person'`,
+		DialectMySQL:    "`kind` = 'person'",
+	} {
+		sch, err := toSchema(dialect, "public", []*schemav1.SchemaTable{tbl})
+		if err != nil {
+			t.Fatalf("toSchema(%s): %v", dialect, err)
+		}
+		at, _ := sch.Table("person")
+		var got string
+		for _, attr := range at.Attrs {
+			if c, ok := attr.(*schema.Check); ok {
+				got = c.Expr
+			}
+		}
+		if got != want {
+			t.Errorf("%s: check expr = %q, want %q", dialect, got, want)
+		}
+	}
+
+	// SQLite has no expression here, so applying it there must fail loudly.
+	if _, err := toSchema(DialectSQLite, "main", []*schemav1.SchemaTable{tbl}); err == nil {
+		t.Error("expected an error when a check has no expression for the dialect being applied")
 	}
 }
 

@@ -197,12 +197,17 @@ func (x *SchemaColumn) GetDefaultExpr() string {
 	return ""
 }
 
-// SchemaCheck is a table-level CHECK constraint. The expression is raw SQL and
-// is emitted verbatim, so it has to be valid in every dialect it is used with.
+// SchemaCheck is a table-level CHECK constraint.
+//
+// The expression is raw SQL and is stored per dialect, like a column's type,
+// because identifier quoting is not portable: PostgreSQL and SQLite quote with
+// double quotes, MySQL with backticks. A double-quoted identifier is not an
+// error on MySQL -- it is a string literal, so the constraint silently becomes
+// a comparison between two constants and rejects every row.
 type SchemaCheck struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Expr          *string                `protobuf:"bytes,2,opt,name=expr,proto3,oneof" json:"expr,omitempty"`
+	Expr          map[string]string      `protobuf:"bytes,2,rep,name=expr,proto3" json:"expr,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -244,11 +249,11 @@ func (x *SchemaCheck) GetName() string {
 	return ""
 }
 
-func (x *SchemaCheck) GetExpr() string {
-	if x != nil && x.Expr != nil {
-		return *x.Expr
+func (x *SchemaCheck) GetExpr() map[string]string {
+	if x != nil {
+		return x.Expr
 	}
-	return ""
+	return nil
 }
 
 // SchemaIndex is an index over one or more of the table's columns. Its unique
@@ -474,12 +479,14 @@ const file_schema_v1_schema_proto_rawDesc = "" +
 	"\x05_nameB\x05\n" +
 	"\x03_pkB\v\n" +
 	"\t_nullableB\x0f\n" +
-	"\r_default_expr\"Q\n" +
+	"\r_default_expr\"\x9e\x01\n" +
 	"\vSchemaCheck\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n" +
-	"\x04expr\x18\x02 \x01(\tH\x01R\x04expr\x88\x01\x01B\a\n" +
-	"\x05_nameB\a\n" +
-	"\x05_expr\"\x8a\x01\n" +
+	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x124\n" +
+	"\x04expr\x18\x02 \x03(\v2 .schema.v1.SchemaCheck.ExprEntryR\x04expr\x1a7\n" +
+	"\tExprEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +
+	"\x05_name\"\x8a\x01\n" +
 	"\vSchemaIndex\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x121\n" +
 	"\acolumns\x18\x02 \x03(\v2\x17.schema.v1.SchemaColumnR\acolumns\x12\x1b\n" +
@@ -528,7 +535,7 @@ func file_schema_v1_schema_proto_rawDescGZIP() []byte {
 }
 
 var file_schema_v1_schema_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_schema_v1_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_schema_v1_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_schema_v1_schema_proto_goTypes = []any{
 	(PK)(0),                  // 0: schema.v1.PK
 	(OnDelete)(0),            // 1: schema.v1.OnDelete
@@ -538,24 +545,26 @@ var file_schema_v1_schema_proto_goTypes = []any{
 	(*SchemaForeignKey)(nil), // 5: schema.v1.SchemaForeignKey
 	(*SchemaTable)(nil),      // 6: schema.v1.SchemaTable
 	nil,                      // 7: schema.v1.SchemaColumn.TypeEntry
+	nil,                      // 8: schema.v1.SchemaCheck.ExprEntry
 }
 var file_schema_v1_schema_proto_depIdxs = []int32{
 	7,  // 0: schema.v1.SchemaColumn.type:type_name -> schema.v1.SchemaColumn.TypeEntry
 	0,  // 1: schema.v1.SchemaColumn.pk:type_name -> schema.v1.PK
-	2,  // 2: schema.v1.SchemaIndex.columns:type_name -> schema.v1.SchemaColumn
-	2,  // 3: schema.v1.SchemaForeignKey.columns:type_name -> schema.v1.SchemaColumn
-	6,  // 4: schema.v1.SchemaForeignKey.ref_table:type_name -> schema.v1.SchemaTable
-	2,  // 5: schema.v1.SchemaForeignKey.ref_columns:type_name -> schema.v1.SchemaColumn
-	1,  // 6: schema.v1.SchemaForeignKey.on_delete:type_name -> schema.v1.OnDelete
-	2,  // 7: schema.v1.SchemaTable.columns:type_name -> schema.v1.SchemaColumn
-	5,  // 8: schema.v1.SchemaTable.foreign_keys:type_name -> schema.v1.SchemaForeignKey
-	3,  // 9: schema.v1.SchemaTable.checks:type_name -> schema.v1.SchemaCheck
-	4,  // 10: schema.v1.SchemaTable.indexes:type_name -> schema.v1.SchemaIndex
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	8,  // 2: schema.v1.SchemaCheck.expr:type_name -> schema.v1.SchemaCheck.ExprEntry
+	2,  // 3: schema.v1.SchemaIndex.columns:type_name -> schema.v1.SchemaColumn
+	2,  // 4: schema.v1.SchemaForeignKey.columns:type_name -> schema.v1.SchemaColumn
+	6,  // 5: schema.v1.SchemaForeignKey.ref_table:type_name -> schema.v1.SchemaTable
+	2,  // 6: schema.v1.SchemaForeignKey.ref_columns:type_name -> schema.v1.SchemaColumn
+	1,  // 7: schema.v1.SchemaForeignKey.on_delete:type_name -> schema.v1.OnDelete
+	2,  // 8: schema.v1.SchemaTable.columns:type_name -> schema.v1.SchemaColumn
+	5,  // 9: schema.v1.SchemaTable.foreign_keys:type_name -> schema.v1.SchemaForeignKey
+	3,  // 10: schema.v1.SchemaTable.checks:type_name -> schema.v1.SchemaCheck
+	4,  // 11: schema.v1.SchemaTable.indexes:type_name -> schema.v1.SchemaIndex
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_schema_v1_schema_proto_init() }
@@ -574,7 +583,7 @@ func file_schema_v1_schema_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schema_v1_schema_proto_rawDesc), len(file_schema_v1_schema_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
