@@ -5,10 +5,10 @@ import (
 	"strings"
 	"text/template"
 
-	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
-	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer"
+	schemav1 "github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	sqlmapv1 "github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/writer"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )

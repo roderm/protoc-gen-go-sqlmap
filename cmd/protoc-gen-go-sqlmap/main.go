@@ -4,7 +4,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/generator/sqlmap"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generator/sqlmap"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/pluginpb"

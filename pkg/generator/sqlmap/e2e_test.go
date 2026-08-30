@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"e2etest/relationpb"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/migration"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/migration"
 )
 
 func run(ctx context.Context, db *sql.DB) error {
@@ -90,8 +90,8 @@ import (
 	"time"
 
 	"e2etest/eagerpb"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/migration"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/query"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/migration"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/query"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -260,7 +260,7 @@ import (
 	"fmt"
 
 	"e2etest/subtypepb"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/migration"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/migration"
 )
 
 func run(ctx context.Context, db *sql.DB) error {
@@ -455,8 +455,8 @@ func runE2E(t *testing.T, protoFile, pkgName, driverSrc string) {
 		"-I", filepath.Join(repoRoot, "proto"),
 		"-I", testdata,
 		"--go_out=paths=source_relative,"+
-			"Msqlmap/v1/sqlmap.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1,"+
-			"Mschema/v1/schema.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1:"+pbOutDir,
+			"Msqlmap/v1/sqlmap.proto=github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1,"+
+			"Mschema/v1/schema.proto=github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1:"+pbOutDir,
 		filepath.Join(testdata, protoFile),
 	)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -505,8 +505,8 @@ func runE2E(t *testing.T, protoFile, pkgName, driverSrc string) {
 		return string(out)
 	}
 	run("go", "mod", "edit",
-		"-require=github.com/roderm/protoc-gen-go-sqlmap@v0.0.0",
-		"-replace=github.com/roderm/protoc-gen-go-sqlmap="+repoRoot,
+		"-require=github.com/snaerverk/protoc-gen-go-sqlmap@v0.0.0",
+		"-replace=github.com/snaerverk/protoc-gen-go-sqlmap="+repoRoot,
 	)
 	run("go", "mod", "tidy")
 

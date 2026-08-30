@@ -511,8 +511,8 @@ const file_schema_v1_schema_proto_rawDesc = "" +
 	"\bOnDelete\x12\x19\n" +
 	"\x15ON_DELETE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11ON_DELETE_CASCADE\x10\x01\x12\x16\n" +
-	"\x12ON_DELETE_SET_NULL\x10\x02B\xaa\x01\n" +
-	"\rcom.schema.v1B\vSchemaProtoP\x01ZGgithub.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1;schemav1\xa2\x02\x03SXX\xaa\x02\tSchema.V1\xca\x02\tSchema\\V1\xe2\x02\x15Schema\\V1\\GPBMetadata\xea\x02\n" +
+	"\x12ON_DELETE_SET_NULL\x10\x02B\xad\x01\n" +
+	"\rcom.schema.v1B\vSchemaProtoP\x01ZJgithub.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1;schemav1\xa2\x02\x03SXX\xaa\x02\tSchema.V1\xca\x02\tSchema\\V1\xe2\x02\x15Schema\\V1\\GPBMetadata\xea\x02\n" +
 	"Schema::V1b\x06proto3"
 
 var (

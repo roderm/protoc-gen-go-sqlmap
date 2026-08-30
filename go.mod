@@ -1,4 +1,4 @@
-module github.com/roderm/protoc-gen-go-sqlmap
+module github.com/snaerverk/protoc-gen-go-sqlmap
 
 go 1.27
 

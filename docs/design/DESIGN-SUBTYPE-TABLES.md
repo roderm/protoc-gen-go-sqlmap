@@ -2,7 +2,7 @@
 
 Status: **implemented** for the schema half — the discriminator column, CHECK constraints, unique index and composite foreign key are generated and enforced. Eager loading of subtypes (the section near the end) is **not** implemented yet.
 
-Consumers pulling the extensions from `buf.build/roderm/protoc-gen-go-sqlmap` need a `buf push` before they can use `subtypes` / `subtype_of`.
+Consumers pulling the extensions from `buf.build/snaerverk/protoc-gen-go-sqlmap` need a `buf push` before they can use `subtypes` / `subtype_of`.
 
 ## The problem
 

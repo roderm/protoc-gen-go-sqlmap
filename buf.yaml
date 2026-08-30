@@ -1,7 +1,7 @@
 version: v2
 modules:
   - path: proto/
-    name: buf.build/roderm/protoc-gen-go-sqlmap
+    name: buf.build/snaerverk/protoc-gen-go-sqlmap
 deps:
   - buf.build/googleapis/googleapis
 lint:

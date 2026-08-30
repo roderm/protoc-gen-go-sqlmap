@@ -62,8 +62,8 @@ func buildRequest(t *testing.T, protoFile, extra string) *pluginpb.CodeGenerator
 	}
 
 	param := "paths=source_relative," +
-		"Msqlmap/v1/sqlmap.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1," +
-		"Mschema/v1/schema.proto=github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+		"Msqlmap/v1/sqlmap.proto=github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1," +
+		"Mschema/v1/schema.proto=github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	if extra != "" {
 		param += "," + extra
 	}

@@ -6,7 +6,7 @@ import (
 
 	"ariga.io/atlas/sql/schema"
 
-	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	schemav1 "github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 )
 
 // newCol builds a VARCHAR test column, except for PK_AUTO columns: an

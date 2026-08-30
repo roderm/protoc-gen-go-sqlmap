@@ -7,7 +7,7 @@
 package sqlmapv1
 
 import (
-	v1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	v1 "github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
@@ -498,8 +498,8 @@ const file_sqlmap_v1_sqlmap_proto_rawDesc = "" +
 	"\ton_delete\x18\x04 \x01(\x0e2\x13.schema.v1.OnDeleteR\bonDelete:I\n" +
 	"\x05table\x12\x1f.google.protobuf.MessageOptions\x18\xe4\xea0 \x01(\v2\x10.sqlmap.v1.TableR\x05table:D\n" +
 	"\x03col\x12\x1d.google.protobuf.FieldOptions\x18\xf8\xea0 \x01(\v2\x11.sqlmap.v1.ColumnR\x03col:P\n" +
-	"\bsubtypes\x12\x1d.google.protobuf.OneofOptions\x18\x8c\xeb0 \x01(\v2\x13.sqlmap.v1.SubtypesR\bsubtypesB\xaa\x01\n" +
-	"\rcom.sqlmap.v1B\vSqlmapProtoP\x01ZGgithub.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1;sqlmapv1\xa2\x02\x03SXX\xaa\x02\tSqlmap.V1\xca\x02\tSqlmap\\V1\xe2\x02\x15Sqlmap\\V1\\GPBMetadata\xea\x02\n" +
+	"\bsubtypes\x12\x1d.google.protobuf.OneofOptions\x18\x8c\xeb0 \x01(\v2\x13.sqlmap.v1.SubtypesR\bsubtypesB\xad\x01\n" +
+	"\rcom.sqlmap.v1B\vSqlmapProtoP\x01ZJgithub.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1;sqlmapv1\xa2\x02\x03SXX\xaa\x02\tSqlmap.V1\xca\x02\tSqlmap\\V1\xe2\x02\x15Sqlmap\\V1\\GPBMetadata\xea\x02\n" +
 	"Sqlmap::V1"
 
 var (

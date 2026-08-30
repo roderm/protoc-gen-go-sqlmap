@@ -1,23 +1,23 @@
 # protoc-gen-go-sqlmap:
-[![test](https://github.com/roderm/protoc-gen-go-sqlmap/actions/workflows/test.yaml/badge.svg)](https://github.com/roderm/protoc-gen-go-sqlmap/actions/workflows/test.yaml)
+[![test](https://github.com/snaerverk/protoc-gen-go-sqlmap/actions/workflows/test.yaml/badge.svg)](https://github.com/snaerverk/protoc-gen-go-sqlmap/actions/workflows/test.yaml)
 This is a protobuf-plugin to generate SQL-Select mappers in go to insert, update and query protbuf messages directly from tables or views.
 
 ## Usage:
 Install with:
 ```bash
-go install github.com/roderm/protoc-gen-go-sqlmap
+go install github.com/snaerverk/protoc-gen-go-sqlmap
 ```
-### protoc 
+### protoc
 ```bash
 protoc --go-sqlmap_out=. [your-protobuf-definition].proto
 ```
 ### buf
-* add dependency `buf.build/roderm/protoc-gen-go-sqlmap`
+* add dependency `buf.build/snaerverk/protoc-gen-go-sqlmap`
 * add `go-sqlmap` and `go` to your `buf.gen.yaml`
 
 To make use of this plugin, add following extensions to you .proto-file:
 ```proto
-import "github.com/roderm/protoc-gen-go-sqlmap/proto/sqlgen/sqlgen.proto" // Import of the extensions
+import "github.com/snaerverk/protoc-gen-go-sqlmap/proto/sqlgen/sqlgen.proto" // Import of the extensions
 // or with buf
 import "proto/sqlgen/sqlgen.proto"
 
@@ -47,7 +47,7 @@ Additional there can be given extra parameters for filtering (Currently only for
 or for the sub-query:
 `store.Some(context.TODO(), package.SomeWithAttributes(AttributeFilter(pg.EQ("name", "FirstArgument")))`
 
-## [Docs](https://pkg.go.dev/github.com/roderm/protoc-gen-go-sqlmap)
+## [Docs](https://pkg.go.dev/github.com/snaerverk/protoc-gen-go-sqlmap)
 ## Roadmap:
 - [-] Queries
 	- [x] loading of one-to-many
@@ -61,7 +61,7 @@ or for the sub-query:
 - [ ] Implement update
 	- Should have use replace and conflict handling parameter
 - [x] Decouple gogo
-- [x] Write generator test 
+- [x] Write generator test
 - [ ] Support multiple PKs
 - [ ] Add multiple FKs for single Message
 - [ ] Support `oneOf` type in proto3

@@ -1,4 +1,4 @@
-# Image for the BSR remote plugin (buf.build/roderm/go-sqlmap).
+# Image for the BSR remote plugin (buf.build/snaerverk/go-sqlmap).
 # Built and pushed by `buf beta registry plugin push`, which requires
 # linux/amd64, a minimal base and a non-root user.
 FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build

@@ -15,7 +15,7 @@ import (
 	"ariga.io/atlas/sql/schema"
 	"ariga.io/atlas/sql/sqlite"
 
-	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	schemav1 "github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 )
 
 // Dialect names accepted by New.

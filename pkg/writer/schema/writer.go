@@ -7,10 +7,10 @@ import (
 	"strings"
 	"text/template"
 
-	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
+	schemav1 "github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/writer"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
@@ -18,7 +18,7 @@ import (
 var dialects = []string{"mysql", "postgres", "sqlite3"}
 
 // schemaV1ImportPath holds the SchemaTable/SchemaColumn types this writer emits.
-const schemaV1ImportPath = protogen.GoImportPath("github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1")
+const schemaV1ImportPath = protogen.GoImportPath("github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generated/schema/v1")
 
 // protoImportPath supplies proto.String() for the schema.v1 *string fields.
 const protoImportPath = protogen.GoImportPath("google.golang.org/protobuf/proto")

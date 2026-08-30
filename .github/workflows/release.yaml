@@ -41,7 +41,7 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" --title "Release $GITHUB_REF_NAME" --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  # The BSR remote plugin, so consumers can use `remote: buf.build/roderm/
+  # The BSR remote plugin, so consumers can use `remote: buf.build/snaerverk/
   # go-sqlmap` instead of installing the binary. Runs after `release` because
   # buf.plugin.yaml's license_url points at the tag's LICENSE.
   plugin:

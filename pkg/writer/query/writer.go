@@ -8,13 +8,13 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/writer"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
 const (
-	queryImportPath     = protogen.GoImportPath("github.com/roderm/protoc-gen-go-sqlmap/pkg/query")
+	queryImportPath     = protogen.GoImportPath("github.com/snaerverk/protoc-gen-go-sqlmap/pkg/query")
 	fieldmaskImportPath = protogen.GoImportPath("google.golang.org/protobuf/types/known/fieldmaskpb")
 	contextImportPath   = protogen.GoImportPath("context")
 )

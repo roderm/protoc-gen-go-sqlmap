@@ -5,11 +5,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer/query"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer/scanner"
-	"github.com/roderm/protoc-gen-go-sqlmap/pkg/writer/schema"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/generator/sqlmap/types"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/writer"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/writer/query"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/writer/scanner"
+	"github.com/snaerverk/protoc-gen-go-sqlmap/pkg/writer/schema"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"
 )
