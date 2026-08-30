@@ -157,6 +157,15 @@ func TestGenerate_Eager(t *testing.T) {
 	compareGolden(t, "eager.sqlmap.go", got)
 }
 
+func TestGenerate_Subtype(t *testing.T) {
+	files := generate(t, "subtype.proto")
+	got, ok := files["subtype.sqlmap.go"]
+	if !ok {
+		t.Fatalf("no subtype.sqlmap.go in generated output, got files: %v", fileNames(files))
+	}
+	compareGolden(t, "subtype.sqlmap.go", got)
+}
+
 func fileNames(files map[string]string) []string {
 	names := make([]string, 0, len(files))
 	for name := range files {

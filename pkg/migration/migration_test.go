@@ -198,5 +198,68 @@ func TestToSchema_SetNullOnNotNullColumnRejected(t *testing.T) {
 	}
 }
 
+// Checks, unique indexes and column defaults are what the subtype pattern is
+// built from, so toSchema has to carry all three into the atlas schema.
+func TestToSchema_ChecksIndexesAndDefaults(t *testing.T) {
+	id := newCol("id", schemav1.PK_PK_MAN)
+	kind := newCol("kind", schemav1.PK_PK_UNSPECIFIED)
+	kind.DefaultExpr = strPtr("'person'")
+
+	tbl := &schemav1.SchemaTable{
+		Name:    strPtr("person"),
+		Columns: []*schemav1.SchemaColumn{id, kind},
+		Checks: []*schemav1.SchemaCheck{{
+			Name: strPtr("person_kind_check"),
+			Expr: strPtr(`"kind" = 'person'`),
+		}},
+		Indexes: []*schemav1.SchemaIndex{{
+			Name:    strPtr("person_kind_key"),
+			Unique:  boolPtr(true),
+			Columns: []*schemav1.SchemaColumn{id, kind},
+		}},
+	}
+
+	sch, err := toSchema(DialectPostgres, "public", []*schemav1.SchemaTable{tbl})
+	if err != nil {
+		t.Fatalf("toSchema: %v", err)
+	}
+	at, _ := sch.Table("person")
+
+	var checks []*schema.Check
+	for _, attr := range at.Attrs {
+		if c, ok := attr.(*schema.Check); ok {
+			checks = append(checks, c)
+		}
+	}
+	if len(checks) != 1 {
+		t.Fatalf("got %d checks, want 1", len(checks))
+	}
+	if checks[0].Expr != `"kind" = 'person'` {
+		t.Errorf("check expr = %q, want %q", checks[0].Expr, `"kind" = 'person'`)
+	}
+
+	if len(at.Indexes) != 1 {
+		t.Fatalf("got %d indexes, want 1", len(at.Indexes))
+	}
+	idx := at.Indexes[0]
+	if !idx.Unique {
+		t.Error("index should be unique -- a composite foreign key needs a unique target")
+	}
+	if len(idx.Parts) != 2 {
+		t.Errorf("index covers %d columns, want 2", len(idx.Parts))
+	}
+
+	// The default is what lets a subtype row be inserted without naming the
+	// discriminator at all.
+	col, _ := at.Column("kind")
+	raw, ok := col.Default.(*schema.RawExpr)
+	if !ok {
+		t.Fatalf("default = %T, want *schema.RawExpr", col.Default)
+	}
+	if raw.X != "'person'" {
+		t.Errorf("default = %q, want %q", raw.X, "'person'")
+	}
+}
+
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }

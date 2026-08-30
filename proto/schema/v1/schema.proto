@@ -19,6 +19,24 @@ message SchemaColumn {
   map<string, string> type = 2;
   optional PK pk = 3;
   optional bool nullable = 4;
+  // Raw SQL default expression, e.g. "'person'". Emitted verbatim, so string
+  // literals have to carry their own quotes.
+  optional string default_expr = 5;
+}
+
+// SchemaCheck is a table-level CHECK constraint. The expression is raw SQL and
+// is emitted verbatim, so it has to be valid in every dialect it is used with.
+message SchemaCheck {
+  optional string name = 1;
+  optional string expr = 2;
+}
+
+// SchemaIndex is an index over one or more of the table's columns. Its unique
+// variant also serves as the target a composite foreign key needs.
+message SchemaIndex {
+  optional string name = 1;
+  repeated SchemaColumn columns = 2;
+  optional bool unique = 3;
 }
 
 message SchemaForeignKey {
@@ -32,4 +50,6 @@ message SchemaTable {
   optional string name = 1;
   repeated SchemaColumn columns = 2;
   repeated SchemaForeignKey foreign_keys = 3;
+  repeated SchemaCheck checks = 4;
+  repeated SchemaIndex indexes = 5;
 }

@@ -24,9 +24,13 @@ const (
 )
 
 type Table struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	Name          *string                 `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
-	ForeignKeys   []*ForeignKeyDefinition `protobuf:"bytes,2,rep,name=foreign_keys,json=foreignKeys" json:"foreign_keys,omitempty"`
+	state       protoimpl.MessageState  `protogen:"open.v1"`
+	Name        *string                 `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
+	ForeignKeys []*ForeignKeyDefinition `protobuf:"bytes,2,rep,name=foreign_keys,json=foreignKeys" json:"foreign_keys,omitempty"`
+	// Marks this table as one arm of a supertype's oneof: its rows are the
+	// detail rows of a shared supertype row. Implies the foreign key back to
+	// the supertype, so the key columns must not also declare one themselves.
+	SubtypeOf     *SubtypeOf `protobuf:"bytes,3,opt,name=subtype_of,json=subtypeOf" json:"subtype_of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -71,6 +75,13 @@ func (x *Table) GetName() string {
 func (x *Table) GetForeignKeys() []*ForeignKeyDefinition {
 	if x != nil {
 		return x.ForeignKeys
+	}
+	return nil
+}
+
+func (x *Table) GetSubtypeOf() *SubtypeOf {
+	if x != nil {
+		return x.SubtypeOf
 	}
 	return nil
 }
@@ -266,6 +277,147 @@ func (x *ForeignKey) GetFieldnames() []string {
 	return nil
 }
 
+// Subtypes marks a oneof of message fields as a joined-table subtype
+// hierarchy rooted at this message: every row of this table is detailed by a
+// row in exactly one of the tables the oneof names.
+//
+// The generator adds the discriminator column to this table with a CHECK
+// restricting it to the declared subtype values, plus a unique index over the
+// primary key and the discriminator, which is what each subtype's composite
+// foreign key references.
+//
+// This enforces *at most one* subtype row. At-least-one is not expressible as
+// a declarative constraint -- the supertype row must exist before a subtype
+// row can reference it -- and is left to the application.
+type Subtypes struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Column added to this table recording which subtype each row is.
+	Discriminator *string `protobuf:"bytes,1,req,name=discriminator" json:"discriminator,omitempty"`
+	// SQL type of the discriminator column per dialect. Defaults to
+	// VARCHAR(32) everywhere.
+	Type          map[string]string `protobuf:"bytes,2,rep,name=type" json:"type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Subtypes) Reset() {
+	*x = Subtypes{}
+	mi := &file_sqlmap_v1_sqlmap_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Subtypes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Subtypes) ProtoMessage() {}
+
+func (x *Subtypes) ProtoReflect() protoreflect.Message {
+	mi := &file_sqlmap_v1_sqlmap_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Subtypes.ProtoReflect.Descriptor instead.
+func (*Subtypes) Descriptor() ([]byte, []int) {
+	return file_sqlmap_v1_sqlmap_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Subtypes) GetDiscriminator() string {
+	if x != nil && x.Discriminator != nil {
+		return *x.Discriminator
+	}
+	return ""
+}
+
+func (x *Subtypes) GetType() map[string]string {
+	if x != nil {
+		return x.Type
+	}
+	return nil
+}
+
+// SubtypeOf names the supertype a table details.
+type SubtypeOf struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The supertype message. Its oneof must carry the `subtypes` option.
+	Entity *string `protobuf:"bytes,1,req,name=entity" json:"entity,omitempty"`
+	// Value stored in the supertype's discriminator for this subtype. Defaults
+	// to the name of the oneof field pointing at this message.
+	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	// Columns on THIS table carrying the supertype's key. Defaults to this
+	// table's primary key.
+	Fieldnames    []string     `protobuf:"bytes,3,rep,name=fieldnames" json:"fieldnames,omitempty"`
+	OnDelete      *v1.OnDelete `protobuf:"varint,4,opt,name=on_delete,json=onDelete,enum=schema.v1.OnDelete" json:"on_delete,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubtypeOf) Reset() {
+	*x = SubtypeOf{}
+	mi := &file_sqlmap_v1_sqlmap_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubtypeOf) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubtypeOf) ProtoMessage() {}
+
+func (x *SubtypeOf) ProtoReflect() protoreflect.Message {
+	mi := &file_sqlmap_v1_sqlmap_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubtypeOf.ProtoReflect.Descriptor instead.
+func (*SubtypeOf) Descriptor() ([]byte, []int) {
+	return file_sqlmap_v1_sqlmap_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SubtypeOf) GetEntity() string {
+	if x != nil && x.Entity != nil {
+		return *x.Entity
+	}
+	return ""
+}
+
+func (x *SubtypeOf) GetValue() string {
+	if x != nil && x.Value != nil {
+		return *x.Value
+	}
+	return ""
+}
+
+func (x *SubtypeOf) GetFieldnames() []string {
+	if x != nil {
+		return x.Fieldnames
+	}
+	return nil
+}
+
+func (x *SubtypeOf) GetOnDelete() v1.OnDelete {
+	if x != nil && x.OnDelete != nil {
+		return *x.OnDelete
+	}
+	return v1.OnDelete(0)
+}
+
 var file_sqlmap_v1_sqlmap_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MessageOptions)(nil),
@@ -283,6 +435,14 @@ var file_sqlmap_v1_sqlmap_proto_extTypes = []protoimpl.ExtensionInfo{
 		Tag:           "bytes,800120,opt,name=col",
 		Filename:      "sqlmap/v1/sqlmap.proto",
 	},
+	{
+		ExtendedType:  (*descriptorpb.OneofOptions)(nil),
+		ExtensionType: (*Subtypes)(nil),
+		Field:         800140,
+		Name:          "sqlmap.v1.subtypes",
+		Tag:           "bytes,800140,opt,name=subtypes",
+		Filename:      "sqlmap/v1/sqlmap.proto",
+	},
 }
 
 // Extension fields to descriptorpb.MessageOptions.
@@ -297,14 +457,22 @@ var (
 	E_Col = &file_sqlmap_v1_sqlmap_proto_extTypes[1]
 )
 
+// Extension fields to descriptorpb.OneofOptions.
+var (
+	// optional sqlmap.v1.Subtypes subtypes = 800140;
+	E_Subtypes = &file_sqlmap_v1_sqlmap_proto_extTypes[2]
+)
+
 var File_sqlmap_v1_sqlmap_proto protoreflect.FileDescriptor
 
 const file_sqlmap_v1_sqlmap_proto_rawDesc = "" +
 	"\n" +
-	"\x16sqlmap/v1/sqlmap.proto\x12\tsqlmap.v1\x1a\x16schema/v1/schema.proto\x1a google/protobuf/descriptor.proto\"_\n" +
+	"\x16sqlmap/v1/sqlmap.proto\x12\tsqlmap.v1\x1a\x16schema/v1/schema.proto\x1a google/protobuf/descriptor.proto\"\x94\x01\n" +
 	"\x05Table\x12\x12\n" +
 	"\x04name\x18\x01 \x02(\tR\x04name\x12B\n" +
-	"\fforeign_keys\x18\x02 \x03(\v2\x1f.sqlmap.v1.ForeignKeyDefinitionR\vforeignKeys\"\x83\x02\n" +
+	"\fforeign_keys\x18\x02 \x03(\v2\x1f.sqlmap.v1.ForeignKeyDefinitionR\vforeignKeys\x123\n" +
+	"\n" +
+	"subtype_of\x18\x03 \x01(\v2\x14.sqlmap.v1.SubtypeOfR\tsubtypeOf\"\x83\x02\n" +
 	"\x06Column\x12\x1c\n" +
 	"\tfieldname\x18\x01 \x01(\tR\tfieldname\x12\x1d\n" +
 	"\x02pk\x18\x02 \x01(\x0e2\r.schema.v1.PKR\x02pk\x12/\n" +
@@ -326,9 +494,23 @@ const file_sqlmap_v1_sqlmap_proto_rawDesc = "" +
 	"\x06entity\x18\x01 \x01(\tR\x06entity\x12\x1e\n" +
 	"\n" +
 	"fieldnames\x18\x02 \x03(\tR\n" +
-	"fieldnames:I\n" +
+	"fieldnames\"\x9c\x01\n" +
+	"\bSubtypes\x12$\n" +
+	"\rdiscriminator\x18\x01 \x02(\tR\rdiscriminator\x121\n" +
+	"\x04type\x18\x02 \x03(\v2\x1d.sqlmap.v1.Subtypes.TypeEntryR\x04type\x1a7\n" +
+	"\tTypeEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8b\x01\n" +
+	"\tSubtypeOf\x12\x16\n" +
+	"\x06entity\x18\x01 \x02(\tR\x06entity\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12\x1e\n" +
+	"\n" +
+	"fieldnames\x18\x03 \x03(\tR\n" +
+	"fieldnames\x120\n" +
+	"\ton_delete\x18\x04 \x01(\x0e2\x13.schema.v1.OnDeleteR\bonDelete:I\n" +
 	"\x05table\x12\x1f.google.protobuf.MessageOptions\x18\xe4\xea0 \x01(\v2\x10.sqlmap.v1.TableR\x05table:D\n" +
-	"\x03col\x12\x1d.google.protobuf.FieldOptions\x18\xf8\xea0 \x01(\v2\x11.sqlmap.v1.ColumnR\x03colB\xaa\x01\n" +
+	"\x03col\x12\x1d.google.protobuf.FieldOptions\x18\xf8\xea0 \x01(\v2\x11.sqlmap.v1.ColumnR\x03col:P\n" +
+	"\bsubtypes\x12\x1d.google.protobuf.OneofOptions\x18\x8c\xeb0 \x01(\v2\x13.sqlmap.v1.SubtypesR\bsubtypesB\xaa\x01\n" +
 	"\rcom.sqlmap.v1B\vSqlmapProtoP\x01ZGgithub.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1;sqlmapv1\xa2\x02\x03SXX\xaa\x02\tSqlmap.V1\xca\x02\tSqlmap\\V1\xe2\x02\x15Sqlmap\\V1\\GPBMetadata\xea\x02\n" +
 	"Sqlmap::V1"
 
@@ -344,34 +526,43 @@ func file_sqlmap_v1_sqlmap_proto_rawDescGZIP() []byte {
 	return file_sqlmap_v1_sqlmap_proto_rawDescData
 }
 
-var file_sqlmap_v1_sqlmap_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_sqlmap_v1_sqlmap_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_sqlmap_v1_sqlmap_proto_goTypes = []any{
 	(*Table)(nil),                       // 0: sqlmap.v1.Table
 	(*Column)(nil),                      // 1: sqlmap.v1.Column
 	(*ForeignKeyDefinition)(nil),        // 2: sqlmap.v1.ForeignKeyDefinition
 	(*ForeignKey)(nil),                  // 3: sqlmap.v1.ForeignKey
-	nil,                                 // 4: sqlmap.v1.Column.TypeEntry
-	(v1.PK)(0),                          // 5: schema.v1.PK
-	(v1.OnDelete)(0),                    // 6: schema.v1.OnDelete
-	(*descriptorpb.MessageOptions)(nil), // 7: google.protobuf.MessageOptions
-	(*descriptorpb.FieldOptions)(nil),   // 8: google.protobuf.FieldOptions
+	(*Subtypes)(nil),                    // 4: sqlmap.v1.Subtypes
+	(*SubtypeOf)(nil),                   // 5: sqlmap.v1.SubtypeOf
+	nil,                                 // 6: sqlmap.v1.Column.TypeEntry
+	nil,                                 // 7: sqlmap.v1.Subtypes.TypeEntry
+	(v1.PK)(0),                          // 8: schema.v1.PK
+	(v1.OnDelete)(0),                    // 9: schema.v1.OnDelete
+	(*descriptorpb.MessageOptions)(nil), // 10: google.protobuf.MessageOptions
+	(*descriptorpb.FieldOptions)(nil),   // 11: google.protobuf.FieldOptions
+	(*descriptorpb.OneofOptions)(nil),   // 12: google.protobuf.OneofOptions
 }
 var file_sqlmap_v1_sqlmap_proto_depIdxs = []int32{
 	2,  // 0: sqlmap.v1.Table.foreign_keys:type_name -> sqlmap.v1.ForeignKeyDefinition
-	5,  // 1: sqlmap.v1.Column.pk:type_name -> schema.v1.PK
-	4,  // 2: sqlmap.v1.Column.type:type_name -> sqlmap.v1.Column.TypeEntry
-	3,  // 3: sqlmap.v1.Column.foreign_key:type_name -> sqlmap.v1.ForeignKey
-	3,  // 4: sqlmap.v1.ForeignKeyDefinition.to:type_name -> sqlmap.v1.ForeignKey
-	6,  // 5: sqlmap.v1.ForeignKeyDefinition.on_delete:type_name -> schema.v1.OnDelete
-	7,  // 6: sqlmap.v1.table:extendee -> google.protobuf.MessageOptions
-	8,  // 7: sqlmap.v1.col:extendee -> google.protobuf.FieldOptions
-	0,  // 8: sqlmap.v1.table:type_name -> sqlmap.v1.Table
-	1,  // 9: sqlmap.v1.col:type_name -> sqlmap.v1.Column
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	8,  // [8:10] is the sub-list for extension type_name
-	6,  // [6:8] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	5,  // 1: sqlmap.v1.Table.subtype_of:type_name -> sqlmap.v1.SubtypeOf
+	8,  // 2: sqlmap.v1.Column.pk:type_name -> schema.v1.PK
+	6,  // 3: sqlmap.v1.Column.type:type_name -> sqlmap.v1.Column.TypeEntry
+	3,  // 4: sqlmap.v1.Column.foreign_key:type_name -> sqlmap.v1.ForeignKey
+	3,  // 5: sqlmap.v1.ForeignKeyDefinition.to:type_name -> sqlmap.v1.ForeignKey
+	9,  // 6: sqlmap.v1.ForeignKeyDefinition.on_delete:type_name -> schema.v1.OnDelete
+	7,  // 7: sqlmap.v1.Subtypes.type:type_name -> sqlmap.v1.Subtypes.TypeEntry
+	9,  // 8: sqlmap.v1.SubtypeOf.on_delete:type_name -> schema.v1.OnDelete
+	10, // 9: sqlmap.v1.table:extendee -> google.protobuf.MessageOptions
+	11, // 10: sqlmap.v1.col:extendee -> google.protobuf.FieldOptions
+	12, // 11: sqlmap.v1.subtypes:extendee -> google.protobuf.OneofOptions
+	0,  // 12: sqlmap.v1.table:type_name -> sqlmap.v1.Table
+	1,  // 13: sqlmap.v1.col:type_name -> sqlmap.v1.Column
+	4,  // 14: sqlmap.v1.subtypes:type_name -> sqlmap.v1.Subtypes
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	12, // [12:15] is the sub-list for extension type_name
+	9,  // [9:12] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_sqlmap_v1_sqlmap_proto_init() }
@@ -385,8 +576,8 @@ func file_sqlmap_v1_sqlmap_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sqlmap_v1_sqlmap_proto_rawDesc), len(file_sqlmap_v1_sqlmap_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
-			NumExtensions: 2,
+			NumMessages:   8,
+			NumExtensions: 3,
 			NumServices:   0,
 		},
 		GoTypes:           file_sqlmap_v1_sqlmap_proto_goTypes,

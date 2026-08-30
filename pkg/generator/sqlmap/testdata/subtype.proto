@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/subtypepb";
+
+// Identity is the supertype: every row is detailed by a row in exactly one of
+// the tables its oneof names.
+message Identity {
+  option (sqlmap.v1.table) = { name: "identity" };
+  string id = 1 [(sqlmap.v1.col) = {
+    fieldname: "id"
+    pk: PK_MAN
+    type: { key: "postgres" value: "VARCHAR(64)" }
+    type: { key: "mysql" value: "VARCHAR(64)" }
+    type: { key: "sqlite3" value: "VARCHAR(64)" }
+  }];
+
+  oneof type {
+    option (sqlmap.v1.subtypes) = { discriminator: "kind" };
+    Person person = 5;
+    Organisation organisation = 6;
+  }
+}
+
+message Person {
+  option (sqlmap.v1.table) = {
+    name: "person"
+    subtype_of: { entity: "Identity", on_delete: ON_DELETE_CASCADE }
+  };
+  // No foreign_key here: subtype_of implies it, and as a composite key over
+  // (id, kind) a single-column one would be wrong.
+  string id = 1 [(sqlmap.v1.col) = {
+    fieldname: "id"
+    pk: PK_MAN
+    type: { key: "postgres" value: "VARCHAR(64)" }
+    type: { key: "mysql" value: "VARCHAR(64)" }
+    type: { key: "sqlite3" value: "VARCHAR(64)" }
+  }];
+  string given_name = 2 [(sqlmap.v1.col) = { fieldname: "given_name" }];
+}
+
+message Organisation {
+  option (sqlmap.v1.table) = {
+    name: "organisation"
+    // An explicit discriminator value, overriding the oneof field name.
+    subtype_of: { entity: "Identity", value: "org", on_delete: ON_DELETE_CASCADE }
+  };
+  string id = 1 [(sqlmap.v1.col) = {
+    fieldname: "id"
+    pk: PK_MAN
+    type: { key: "postgres" value: "VARCHAR(64)" }
+    type: { key: "mysql" value: "VARCHAR(64)" }
+    type: { key: "sqlite3" value: "VARCHAR(64)" }
+  }];
+  string name = 2 [(sqlmap.v1.col) = { fieldname: "name" }];
+}

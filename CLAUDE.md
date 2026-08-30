@@ -63,7 +63,7 @@ pkg/query     (runtime, not generated)   Mask, Conn/Select, In/Key/Keys placehol
 
 Writers are plain functions registered in a slice in `generator.go` (`writers: []func(writer.Printer, types.TableRepo) writer.Writer{schema.New, scanner.New}`). Adding a new generated artifact means adding a new writer package + appending it to that slice — no changes needed to the core loop.
 
-Both writers use Go `html/template` (not `text/template`) against small local `Table`/`Column` view-model structs — they translate the richer `types.Table`/`types.Column` domain model into template-friendly shapes right before executing.
+Writers use `text/template` against small local `Table`/`Column` view-model structs — they translate the richer `types.Table`/`types.Column` domain model into template-friendly shapes right before executing. (They used `html/template` until it was found to escape quotes inside substituted values, which mangles emitted SQL such as `kind IN ('person')`; only template *literals* are left alone, so the bug stayed hidden until a value contained a quote.)
 
 ### Domain model (`pkg/generator/sqlmap/types`)
 
@@ -86,6 +86,14 @@ In both cases `ForeignKey.Fieldnames` names columns on the *target* table, resol
 Related rows are fetched with one batched `IN (...)` query per relation and stitched in Go, not joined — a join would multiply the parent row out once per child. Because a child load calls the child's own `Load<T>Rows`, nesting is recursive and nested mask paths (`books.publisher.name`) work for free. `extra ...string` forces the join column into the child's SELECT even when the mask omits it.
 
 The FieldMask drives column selection *and* which relations load, so an unmasked relation costs no query. Primary keys are always selected regardless of the mask, since they are what stitching keys on. `query.Key` normalizes join keys because one side comes from a driver (`any`) and the other from a typed getter, and drivers disagree on integer width and `[]byte` vs `string`.
+
+### Joined-table subtypes (`types/subtype.go`, `docs/design/DESIGN-SUBTYPE-TABLES.md`)
+
+A `oneof` of message fields carrying `option (sqlmap.v1.subtypes) = {discriminator: "kind"}` makes its message a supertype; each arm's table declares `subtype_of: {entity: "..."}` in its table option. The generator then emits, on the supertype: a synthesized `kind` column, `CHECK (kind IN (...))`, and a **unique index over (pk..., kind)** — required because a foreign key can only reference a uniquely-constrained column set. On each subtype: the same column with `DEFAULT '<value>'` and `CHECK (kind = '<value>')`, plus a **composite** FK `(key..., kind) -> super(pk..., kind)`.
+
+Since a supertype row holds exactly one discriminator value, only one subtype table can hold a row for it — that's what makes "at most one subtype" a database guarantee. **At-least-one is not enforceable** declaratively (the supertype row must exist before a subtype can reference it) and is left to the application.
+
+The discriminator has no proto field, so its Go var is `<Msg>DiscriminatorColumn` rather than `<Msg>ColumnDef_<Name>`, to avoid colliding with a real field. A subtype's key columns must *not* also declare a `foreign_key` — `subtype_of` implies it, and a single-column FK would be wrong.
 
 ### Proto extensions (`proto/sqlmap/v1/sqlmap.proto`)
 

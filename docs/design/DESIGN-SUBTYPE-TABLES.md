@@ -1,6 +1,8 @@
 # DESIGN: subtype tables (`Identity` is a `Person` or an `Organisation`)
 
-Status: proposal. Nothing here is implemented yet.
+Status: **implemented** for the schema half — the discriminator column, CHECK constraints, unique index and composite foreign key are generated and enforced. Eager loading of subtypes (the section near the end) is **not** implemented yet.
+
+Consumers pulling the extensions from `buf.build/roderm/protoc-gen-go-sqlmap` need a `buf push` before they can use `subtypes` / `subtype_of`.
 
 ## The problem
 
@@ -219,7 +221,7 @@ A oneof needs one extra step over a normal relation: assigning the loaded messag
 
 ## Open questions
 
-1. **Discriminator values.** Defaulting to the oneof field name (`person`, `organisation`) is readable in the database and needs no extra declaration. Renaming a proto field would then be a schema change — acceptable, or should `value` be mandatory?
+1. **Discriminator values.** Implemented as: default to the oneof field name, override with `value`. Readable in the database and needs no extra declaration, but renaming a proto field is then a schema change. `testdata/subtype.proto` covers both — `person` defaults, `organisation` overrides to `org`.
 2. **At-least-one.** Left to the application. Worth an opt-in `DEFERRABLE` trigger for PostgreSQL later, or better left alone?
 3. **Nested hierarchies.** A subtype that is itself a supertype is not addressed; the design does not forbid it, but nothing validates the chain either.
 4. **`PK_AUTO` supertypes.** With a generated key the application must read the supertype's id back before inserting the subtype row. Fine, but it means subtype insertion is inherently two statements and wants a transaction — relevant once insert generation exists.

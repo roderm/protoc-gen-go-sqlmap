@@ -254,6 +254,87 @@ func run(ctx context.Context, db *sql.DB) error {
 }
 `
 
+// subtypeDriverSrc checks the joined-table subtype constraints: that the
+// database itself refuses to give one supertype row two subtype rows, refuses
+// an unknown discriminator, and cascades the subtype away with its supertype.
+//
+// Every assertion here is about what the *database* rejects, since the whole
+// point of the discriminator plus composite foreign key is to make "at most
+// one subtype" a guarantee rather than a convention.
+const subtypeDriverSrc = `package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"e2etest/subtypepb"
+	"github.com/roderm/protoc-gen-go-sqlmap/pkg/migration"
+)
+
+func run(ctx context.Context, db *sql.DB) error {
+	m, err := migration.New(db, migration.DialectPostgres)
+	if err != nil {
+		return err
+	}
+	if err := m.Create(ctx, subtypepb.IdentityTable, subtypepb.PersonTable, subtypepb.OrganisationTable); err != nil {
+		return fmt.Errorf("Create: %w", err)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO identity (id, kind) VALUES ('i1','person'), ('i2','org')"); err != nil {
+		return fmt.Errorf("insert identities: %w", err)
+	}
+	// kind is defaulted, so a subtype insert never has to name it.
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO person (id, given_name) VALUES ('i1','Ursula')"); err != nil {
+		return fmt.Errorf("insert person: %w", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO organisation (id, name) VALUES ('i2','ACME')"); err != nil {
+		return fmt.Errorf("insert organisation: %w", err)
+	}
+
+	mustFail := func(what, stmt string) error {
+		if _, err := db.ExecContext(ctx, stmt); err == nil {
+			return fmt.Errorf("%s was accepted, but the schema must reject it", what)
+		}
+		return nil
+	}
+	// The identity is a person, so it cannot also be an organisation. This is
+	// the guarantee the whole pattern exists for.
+	if err := mustFail("a second subtype row for one identity",
+		"INSERT INTO organisation (id, name) VALUES ('i1','Bogus')"); err != nil {
+		return err
+	}
+	if err := mustFail("an unknown discriminator value",
+		"INSERT INTO identity (id, kind) VALUES ('i3','robot')"); err != nil {
+		return err
+	}
+	if err := mustFail("a subtype row carrying another subtype's discriminator",
+		"INSERT INTO person (id, kind, given_name) VALUES ('i2','org','X')"); err != nil {
+		return err
+	}
+	if err := mustFail("re-pointing an identity while its subtype row exists",
+		"UPDATE identity SET kind='org' WHERE id='i1'"); err != nil {
+		return err
+	}
+
+	// ON DELETE CASCADE reaches the subtype through the composite key.
+	if _, err := db.ExecContext(ctx, "DELETE FROM identity WHERE id='i1'"); err != nil {
+		return fmt.Errorf("delete identity: %w", err)
+	}
+	var people int
+	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM person").Scan(&people); err != nil {
+		return err
+	}
+	if people != 0 {
+		return fmt.Errorf("deleting the identity left %d person row(s) behind", people)
+	}
+	return nil
+}
+`
+
 // mainSrc wraps a driver's run() with connection setup, so each driver only
 // contains the assertions that make it distinct.
 const mainSrc = `package main
@@ -461,4 +542,11 @@ func TestE2E_MigrationCreateAndScan(t *testing.T) {
 // selection and eager loading across both relation directions.
 func TestE2E_EagerLoading(t *testing.T) {
 	runE2E(t, "eager.proto", "eagerpb", eagerDriverSrc)
+}
+
+// TestE2E_SubtypeConstraints covers joined-table subtypes: that the generated
+// discriminator, CHECKs and composite foreign keys make "at most one subtype"
+// something the database enforces.
+func TestE2E_SubtypeConstraints(t *testing.T) {
+	runE2E(t, "subtype.proto", "subtypepb", subtypeDriverSrc)
 }

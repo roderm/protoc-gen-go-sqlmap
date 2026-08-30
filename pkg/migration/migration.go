@@ -179,6 +179,9 @@ func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Sch
 				return nil, fmt.Errorf("migration: table %q column %q: %w", t.GetName(), c.GetName(), err)
 			}
 			ac := schema.NewColumn(c.GetName()).SetType(typ).SetNull(c.GetNullable())
+			if expr := c.GetDefaultExpr(); expr != "" {
+				ac.SetDefault(&schema.RawExpr{X: expr})
+			}
 			if c.GetPk() == schemav1.PK_PK_AUTO {
 				if err := addAutoIncrement(dialect, ac); err != nil {
 					return nil, fmt.Errorf("migration: table %q column %q: %w", t.GetName(), c.GetName(), err)
@@ -192,6 +195,17 @@ func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Sch
 		}
 		if len(pk) > 0 {
 			at.SetPrimaryKey(schema.NewPrimaryKey(pk...))
+		}
+		for _, chk := range t.GetChecks() {
+			at.AddChecks(schema.NewCheck().SetName(chk.GetName()).SetExpr(chk.GetExpr()))
+		}
+		for _, idx := range t.GetIndexes() {
+			cols, err := lookupColumns(colMap, idx.GetColumns())
+			if err != nil {
+				return nil, fmt.Errorf("migration: table %q index %q: %w", t.GetName(), idx.GetName(), err)
+			}
+			ai := schema.NewIndex(idx.GetName()).SetUnique(idx.GetUnique()).AddColumns(cols...)
+			at.AddIndexes(ai)
 		}
 		tblMap[t] = at
 		sch.AddTables(at)

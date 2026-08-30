@@ -1,8 +1,10 @@
 package scanner
 
+// This writer uses text/template, not html/template: the output is Go source,
+// and HTML escaping would mangle any substituted value containing a quote.
 import (
-	"html/template"
 	"strings"
+	"text/template"
 
 	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
