@@ -41,6 +41,35 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" --title "Release $GITHUB_REF_NAME" --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # The BSR remote plugin, so consumers can use `remote: buf.build/roderm/
+  # go-sqlmap` instead of installing the binary. Runs after `release` because
+  # buf.plugin.yaml's license_url points at the tag's LICENSE.
+  plugin:
+    runs-on: ["ubuntu-latest"]
+    needs: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      # buf.plugin.yaml pins the runtime module the generated code imports.
+      # Publishing it out of step with the tag would ship a plugin whose
+      # generated SDKs require a module version that does not exist.
+      - name: Check buf.plugin.yaml is in step with the tag
+        run: |
+          pinned=$(awk '/^plugin_version:/ {print $2}' buf.plugin.yaml)
+          if [ "$pinned" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::buf.plugin.yaml plugin_version is $pinned, tag is $GITHUB_REF_NAME"
+            exit 1
+          fi
+          if ! grep -q "version: $GITHUB_REF_NAME\$" buf.plugin.yaml; then
+            echo "::error::buf.plugin.yaml does not pin the runtime module at $GITHUB_REF_NAME"
+            exit 1
+          fi
+      - name: Push the remote plugin
+        run: buf beta registry plugin push --visibility=public
+        env:
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
   builds:
     runs-on: ["ubuntu-latest"]
     needs: release

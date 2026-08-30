@@ -1,0 +1,28 @@
+version: v1
+name: buf.build/roderm/go-sqlmap
+# Keep in step with the git tag: registry.go.deps below pins the runtime
+# packages the generated code imports, and they ship from this repo.
+plugin_version: v0.1.0
+
+description: Generates SQL schema definitions, row scanners and FieldMask-aware queries with eager loading from sqlmap-annotated messages.
+source_url: https://github.com/roderm/protoc-gen-go-sqlmap
+spdx_license_id: MIT
+license_url: https://github.com/roderm/protoc-gen-go-sqlmap/blob/v0.1.0/LICENSE
+output_languages:
+  - go
+
+# The generated .sqlmap.go extends the message types protoc-gen-go emits, so it
+# is only compilable alongside them.
+deps:
+  - plugin: buf.build/protocolbuffers/go:v1.36.11
+
+registry:
+  go:
+    min_version: "1.27"
+    deps:
+      # pkg/generated/schema/v1 (SchemaTable/SchemaColumn) and pkg/query
+      # (Mask, Conn) are imported by the generated code.
+      - module: github.com/roderm/protoc-gen-go-sqlmap
+        version: v0.1.0
+      - module: google.golang.org/protobuf
+        version: v1.36.11
