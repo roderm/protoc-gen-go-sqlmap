@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"strings"
 	"testing"
 
 	"ariga.io/atlas/sql/schema"
@@ -8,10 +9,16 @@ import (
 	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 )
 
+// newCol builds a VARCHAR test column, except for PK_AUTO columns: an
+// auto-generated key has to be an integer in every dialect.
 func newCol(name string, pk schemav1.PK) *schemav1.SchemaColumn {
+	typ := "VARCHAR(255)"
+	if pk == schemav1.PK_PK_AUTO {
+		typ = "BIGINT"
+	}
 	return &schemav1.SchemaColumn{
 		Name: &name,
-		Type: map[string]string{DialectPostgres: "VARCHAR(255)"},
+		Type: map[string]string{DialectPostgres: typ},
 		Pk:   pk.Enum(),
 	}
 }
@@ -98,6 +105,23 @@ func TestToSchema_AutoIncrementPerDialect(t *testing.T) {
 		if len(col.Attrs) == 0 {
 			t.Errorf("%s: expected an auto-increment attribute on PK_AUTO column, got none", dialect)
 		}
+	}
+}
+
+// PK_AUTO on a VARCHAR is an easy mistake when the id is really an
+// application-supplied UUID. Every dialect rejects a generated non-integer
+// column, so it has to fail here rather than as opaque DDL from the database.
+func TestToSchema_AutoIncrementRequiresInteger(t *testing.T) {
+	id := newCol("id", schemav1.PK_PK_AUTO)
+	id.Type = map[string]string{DialectPostgres: "VARCHAR(64)"}
+	tbl := &schemav1.SchemaTable{Name: strPtr("tbl"), Columns: []*schemav1.SchemaColumn{id}}
+
+	_, err := toSchema(DialectPostgres, "public", []*schemav1.SchemaTable{tbl})
+	if err == nil {
+		t.Fatal("expected an error for PK_AUTO on a non-integer column, got nil")
+	}
+	if !strings.Contains(err.Error(), "PK_MAN") {
+		t.Errorf("error should point at PK_MAN as the fix, got: %v", err)
 	}
 }
 

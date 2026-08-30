@@ -1,0 +1,51 @@
+syntax = "proto2";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "testdata/eagerpb";
+
+message Publisher {
+  option (sqlmap.v1.table) = { name: "tbl_publisher" };
+  optional int64 id = 1 [(sqlmap.v1.col) = { fieldname: "publisher_id", pk: PK_AUTO }];
+  optional string name = 2 [(sqlmap.v1.col) = { fieldname: "publisher_name" }];
+}
+
+message Author {
+  option (sqlmap.v1.table) = { name: "tbl_author" };
+  optional int64 id = 1 [(sqlmap.v1.col) = { fieldname: "author_id", pk: PK_AUTO }];
+  optional string name = 2 [(sqlmap.v1.col) = { fieldname: "author_name" }];
+
+  // has-many: the key lives on tbl_book, pointing back at author_id here.
+  repeated Book books = 3 [(sqlmap.v1.col) = {
+    foreign_key: { entity: "Book", fieldnames: ["author_id"] }
+  }];
+}
+
+message Book {
+  option (sqlmap.v1.table) = {
+    name: "tbl_book"
+    foreign_keys: [{
+      fieldnames: ["author_id"]
+      to: { entity: "Author", fieldnames: ["author_id"] }
+      on_delete: ON_DELETE_CASCADE
+    }]
+  };
+  optional int64 id = 1 [(sqlmap.v1.col) = { fieldname: "book_id", pk: PK_AUTO }];
+  optional string title = 2 [(sqlmap.v1.col) = { fieldname: "book_title" }];
+  optional int64 author_id = 3 [(sqlmap.v1.col) = { fieldname: "author_id" }];
+  // int32 has no explicit type, so it exercises the per-dialect default:
+  // INTEGER on PostgreSQL/SQLite, INT(11) only on MySQL.
+  optional int32 pages = 5 [(sqlmap.v1.col) = { fieldname: "pages" }];
+  // A well-known Timestamp maps to the dialect's timestamp type, not to the
+  // JSON blob any other message field without a foreign key becomes.
+  optional google.protobuf.Timestamp published_at = 6 [(sqlmap.v1.col) = { fieldname: "published_at" }];
+
+  // belongs-to: this row holds publisher_id, pointing at tbl_publisher.
+  optional Publisher publisher = 4 [(sqlmap.v1.col) = {
+    fieldname: "publisher_id"
+    foreign_key: { entity: "Publisher", fieldnames: ["publisher_id"] }
+  }];
+}

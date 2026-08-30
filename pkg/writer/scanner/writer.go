@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"html/template"
+	"strings"
 
 	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
@@ -12,40 +13,63 @@ import (
 )
 
 const templateStr = `
+{{- $sql := .SQLPkg }}
+{{- $ts := .TimestamppbPkg }}
 type {{ .Name }}Result struct {
 	{{ .Name }}
 	{{- range .Columns }}
 	{{- if .IsMessage }}
 	fk_{{ .FieldName }}_id any
+	{{- else if .IsTimestamp }}
+	ts_{{ .FieldName }} {{ $sql }}.NullTime
 	{{- end }}
 	{{- end }}
 }
 
-func (n *{{ .Name }}Result) Scan(cols []string, r *sql.Row) error {
+// Scan reads cols off r, which is satisfied by both *sql.Row and *sql.Rows.
+func (n *{{ .Name }}Result) Scan(cols []string, r interface{ Scan(dest ...any) error }) error {
 	values := make([]any, len(cols))
 	for i, col := range cols {
 	switch col {
 	{{- range .Columns }}
 	case "{{ .FieldName }}":
-		{{- if not .IsMessage }}
-		values[i] = &n.{{ .MessageName }}
-		{{- else }}
+		{{- if .IsMessage }}
 		values[i] = &n.fk_{{ .FieldName }}_id
+		{{- else if .IsTimestamp }}
+		values[i] = &n.ts_{{ .FieldName }}
+		{{- else }}
+		values[i] = &n.{{ .MessageName }}
 		{{- end }}
 	{{- end }}
 	default:
 		return fmt.Errorf("unknown column '%s'", col)
 	}
 	}
-	return r.Scan(values...)
+	if err := r.Scan(values...); err != nil {
+		return err
+	}
+	{{- range .Columns }}
+	{{- if .IsTimestamp }}
+	// Left nil when the column is NULL, so an absent timestamp stays absent
+	// rather than becoming the zero instant.
+	if n.ts_{{ .FieldName }}.Valid {
+		n.{{ .MessageName }} = {{ $ts }}.New(n.ts_{{ .FieldName }}.Time)
+	}
+	{{- end }}
+	{{- end }}
+	return nil
 }
 
 func (n *{{ .Name }}) GetColValue(col string) any {
 	switch col {
 	{{- range .Columns }}
 	case "{{ .FieldName }}":
-		{{- if not .IsMessage }}
-		return n.{{ .MessageName }}
+		{{- if .IsTimestamp }}
+		// Handed back as a time.Time, which is what a driver can bind.
+		if n.{{ .MessageName }} == nil {
+			return nil
+		}
+		return n.{{ .MessageName }}.AsTime()
 		{{- else }}
 		return n.{{ .MessageName }}
 		{{- end }}
@@ -79,15 +103,35 @@ type Column struct {
 	MessageName  string
 	FieldName    string
 	IsMessage    bool
+	IsTimestamp  bool
 	FK           *sqlmapv1.ForeignKey
 }
 
 type Table struct {
-	Name    string
-	Columns []*Column
+	Name string
+	// SQLPkg and TimestamppbPkg are only referenced by the template when the
+	// table has a timestamp column, so they stay empty otherwise -- asking
+	// protogen to qualify an identifier is what adds the import, and an
+	// unused import would not compile.
+	SQLPkg         string
+	TimestamppbPkg string
+	Columns        []*Column
 }
 
+// timestamppbImportPath provides timestamppb.New, used to turn the time.Time
+// a driver returns into the message field's *timestamppb.Timestamp.
+const timestamppbImportPath = protogen.GoImportPath("google.golang.org/protobuf/types/known/timestamppb")
+
 var tpl = template.Must(template.New("schema").Parse(templateStr))
+
+// pkgAlias resolves the local alias protogen assigned to an import, by asking
+// for a known identifier from it and trimming that identifier back off.
+func (s *SchemaWriter) pkgAlias(goName string, path protogen.GoImportPath, suffix string) string {
+	return strings.TrimSuffix(s.o.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       goName,
+		GoImportPath: path,
+	}), suffix)
+}
 
 type SchemaWriter struct {
 	o    writer.Printer
@@ -114,16 +158,19 @@ func (s *SchemaWriter) Tables(tables ...*types.Table) error {
 func (s *SchemaWriter) table(table *types.Table) error {
 	s.o.QualifiedGoIdent(protogen.GoIdent{
 		GoName:       "",
-		GoImportPath: "database/sql",
-	})
-	s.o.QualifiedGoIdent(protogen.GoIdent{
-		GoName:       "",
 		GoImportPath: "fmt",
 	})
 	tbl := Table{Name: table.GetMessageName()}
 	for _, c := range table.GetColumns() {
+		if c.IsTimestamp() {
+			// Requested lazily: qualifying an identifier is what registers the
+			// import, and a table with no timestamp column must not carry one.
+			tbl.SQLPkg = s.pkgAlias("NullTime", "database/sql", ".NullTime")
+			tbl.TimestamppbPkg = s.pkgAlias("New", timestamppbImportPath, ".New")
+		}
 		tbl.Columns = append(tbl.Columns, &Column{
 			IsPrimaryKey: c.Def.GetPk() != schemav1.PK_PK_UNSPECIFIED,
+			IsTimestamp:  c.IsTimestamp(),
 			MessageName:  c.GetName(),
 			FieldName:    c.GetFieldname(),
 			IsMessage:    c.Field.Desc.Kind() == protoreflect.MessageKind && c.Def.ForeignKey != nil,
