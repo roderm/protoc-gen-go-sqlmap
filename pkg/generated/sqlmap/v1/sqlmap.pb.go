@@ -354,6 +354,22 @@ type SubtypeOf struct {
 	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
 	// Columns on THIS table carrying the supertype's key. Defaults to this
 	// table's primary key.
+	//
+	// Note the asymmetry with ForeignKeyDefinition, which names columns on both
+	// sides: here only the referencing side is configurable, and the referenced
+	// side is always the supertype's primary key.
+	//
+	// The referencing side genuinely varies -- a subtype may carry its own
+	// surrogate key and link through a separate column -- so it has to be
+	// nameable. The referenced side does not: a subtype row *is* the supertype
+	// row, so what it references is that row's identity, which is its primary
+	// key by definition. Allowing some other unique key would also mean
+	// emitting a matching `UNIQUE (those columns..., discriminator)` on the
+	// supertype for the composite foreign key to have a target, which is
+	// surface with no use case behind it yet.
+	//
+	// The column count must match the supertype's primary key, or generation
+	// fails.
 	Fieldnames    []string     `protobuf:"bytes,3,rep,name=fieldnames" json:"fieldnames,omitempty"`
 	OnDelete      *v1.OnDelete `protobuf:"varint,4,opt,name=on_delete,json=onDelete,enum=schema.v1.OnDelete" json:"on_delete,omitempty"`
 	unknownFields protoimpl.UnknownFields

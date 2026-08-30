@@ -178,6 +178,18 @@ func TestGenerate_Eager(t *testing.T) {
 	compareGolden(t, "eager.sqlmap.go", got)
 }
 
+// A subtype does not have to link through its own primary key: it may carry a
+// surrogate key of its own and name the linking column with
+// subtype_of.fieldnames. The referenced side stays the supertype's primary key.
+func TestGenerate_SubtypeFieldnames(t *testing.T) {
+	files := generate(t, "subtype_fieldnames.proto")
+	got, ok := files["subtype_fieldnames.sqlmap.go"]
+	if !ok {
+		t.Fatalf("no subtype_fieldnames.sqlmap.go in generated output, got files: %v", fileNames(files))
+	}
+	compareGolden(t, "subtype_fieldnames.sqlmap.go", got)
+}
+
 func TestGenerate_Subtype(t *testing.T) {
 	files := generate(t, "subtype.proto")
 	got, ok := files["subtype.sqlmap.go"]

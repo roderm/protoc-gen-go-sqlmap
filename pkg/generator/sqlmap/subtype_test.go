@@ -38,6 +38,19 @@ func TestGenerate_SubtypeMisconfigurations(t *testing.T) {
 			proto: "subtype_bad_arm_not_table.proto",
 			want:  []string{"identity", "Organisation", "not a table"},
 		},
+		{
+			// subtype_of names the referencing columns but never the
+			// referenced ones -- those are always the supertype's primary key
+			// -- so the counts have to agree for the composite key to exist.
+			name:  "link columns outnumber the supertype's primary key",
+			proto: "subtype_bad_key_count.proto",
+			want:  []string{"person", "identity", "2 column(s)", "1 primary key"},
+		},
+		{
+			name:  "subtype_of names a column the table does not have",
+			proto: "subtype_bad_unknown_column.proto",
+			want:  []string{"person", "nonexistent"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := generateError(t, tc.proto)
