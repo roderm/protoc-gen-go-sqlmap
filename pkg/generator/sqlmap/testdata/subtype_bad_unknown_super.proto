@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/badpb";
+
+// Person claims to be a subtype of an entity that is not a table at all.
+message Person {
+  option (sqlmap.v1.table) = {
+    name: "person"
+    subtype_of: { entity: "NoSuchThing" }
+  };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+}

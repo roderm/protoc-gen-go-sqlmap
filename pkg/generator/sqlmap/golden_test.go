@@ -99,6 +99,27 @@ func generateWith(t *testing.T, protoFile, extra string) map[string]string {
 	return out
 }
 
+// generateError runs protoFile through the generator and returns the message
+// it failed with. It fails the test if generation unexpectedly succeeded --
+// a misconfiguration that silently produces output is the bug these tests are
+// looking for.
+func generateError(t *testing.T, protoFile string) string {
+	t.Helper()
+	gen, err := New(protogen.Options{}, buildRequest(t, protoFile, ""))
+	if err != nil {
+		return err.Error()
+	}
+	resp, err := gen.Generate()
+	if err != nil {
+		return err.Error()
+	}
+	if resp.Error != nil {
+		return resp.GetError()
+	}
+	t.Fatalf("expected %s to fail generation, but it succeeded", protoFile)
+	return ""
+}
+
 // compareGolden compares got against testdata/<name>.golden, or rewrites it
 // when -update is passed.
 func compareGolden(t *testing.T, name string, got string) {

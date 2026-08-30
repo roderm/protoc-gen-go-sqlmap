@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/badpb";
+
+// Identity's oneof names Person but not Organisation, while Organisation
+// claims to be one of its subtypes. Left unchecked, Organisation would get a
+// discriminator value that Identity's CHECK does not allow, so every insert
+// into it would fail against the database rather than here.
+message Identity {
+  option (sqlmap.v1.table) = { name: "identity" };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+
+  oneof type {
+    option (sqlmap.v1.subtypes) = { discriminator: "kind" };
+    Person person = 5;
+  }
+}
+
+message Person {
+  option (sqlmap.v1.table) = {
+    name: "person"
+    subtype_of: { entity: "Identity" }
+  };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+}
+
+message Organisation {
+  option (sqlmap.v1.table) = {
+    name: "organisation"
+    subtype_of: { entity: "Identity" }
+  };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+}

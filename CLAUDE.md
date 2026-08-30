@@ -32,6 +32,7 @@ CI (`.github/workflows/test.yaml`) installs protoc + `protoc-gen-go` + buf, runs
 - `pkg/migration/migration_test.go` — unit tests over `toSchema` (FK pointer identity, auto-increment per dialect, nullability, SET-NULL validation).
 - `pkg/query/query_test.go` — mask parsing (including that a broad path beats a narrow one in either order), placeholder renumbering, join-key normalization.
 - `pkg/generator/sqlmap/plugins_test.go` — `plugins=` parsing, the scanner dependency, and that a disabled plugin's output really disappears.
+- `pkg/generator/sqlmap/subtype_test.go` — misconfigured subtype hierarchies (`testdata/subtype_bad_*.proto`) must fail generation with a message naming the offending declaration. `generateError` in `golden_test.go` fails the test if generation *succeeds*, since silently emitting a schema whose CHECK and composite FK disagree would surface only as every insert failing against a live database.
 - `pkg/generator/sqlmap/e2e_test.go` — opt-in (`SQLMAP_E2E=1`, needs docker). `runE2E` starts a throwaway PostgreSQL container, generates a testdata proto through the real pipeline into a temp Go module, and runs a driver against the live database. Two cases: `relation.proto` (nullability, `ON DELETE SET NULL`) and `eager.proto` (FieldMask column selection, eager loading both directions, two levels deep). They need separate containers because both protos declare `tbl_author`/`tbl_book`. The SQL driver (`lib/pq`) lives in the temp module's `go.mod`, never in this repo's — that's how the e2e keeps the two-dependency rule.
 
 ## Architecture
