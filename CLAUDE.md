@@ -10,6 +10,19 @@ The goal is a set of independently switchable plugins over one shared `TableRepo
 
 Plugins are toggled with the `plugins=` protoc parameter, a **`+`-separated** list (protoc already uses `,` between parameters): `--go-sqlmap_out=plugins=schema+scanner:.`. Omitting it enables everything. `plugins` entries live in one slice in `generator.go`; `query` declares `Requires: ["scanner"]` because its output calls the scanner's `Result` type, and enabling it alone is a generation-time error rather than uncompilable Go.
 
+### BSR remote plugin
+
+`buf.plugin.yaml` + `Dockerfile` publish the generator as `buf.build/roderm/go-sqlmap`, so consumers need no local binary:
+
+```yaml
+plugins:
+  - remote: buf.build/roderm/go-sqlmap:v0.1.0
+    out: pkg/generated/
+    opt: [paths=source_relative, plugins=schema+scanner+query]
+```
+
+`buf.plugin.yaml` pins the runtime module the generated code imports (`pkg/query`, `pkg/generated/schema/v1`), so `plugin_version` and `registry.go.deps` must both match the git tag — the release workflow fails if they drift. Publishing happens in CI on tag (`buf beta registry plugin push`, needs `BUF_TOKEN`); it is a separate resource from the `buf.build/roderm/protoc-gen-go-sqlmap` *module* that carries the protos. Test the image locally with `docker build -t x . && protoc --plugin=protoc-gen-y=<script running 'docker run --rm -i x'>`.
+
 **Dependency rule: only `ariga.io/atlas` and `google.golang.org/protobuf` are allowed as direct dependencies.** Ask before adding any other, test-only ones included — prefer plain stdlib loops over utility libraries. Target Go 1.27.
 
 ## Commands
