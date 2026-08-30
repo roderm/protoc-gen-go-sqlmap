@@ -32,6 +32,7 @@ CI (`.github/workflows/test.yaml`) installs protoc + `protoc-gen-go` + buf, runs
 - `pkg/migration/migration_test.go` — unit tests over `toSchema` (FK pointer identity, auto-increment per dialect, nullability, SET-NULL validation).
 - `pkg/query/query_test.go` — mask parsing (including that a broad path beats a narrow one in either order), placeholder renumbering, join-key normalization.
 - `pkg/generator/sqlmap/plugins_test.go` — `plugins=` parsing, the scanner dependency, and that a disabled plugin's output really disappears.
+- `pkg/generator/sqlmap/subtype_test.go` — misconfigured hierarchies (`testdata/subtype_bad_*.proto`) must fail generation naming the offending declaration. `generateError` fails the test if generation *succeeds*.
 - `pkg/generator/sqlmap/e2e_test.go` — opt-in (`SQLMAP_E2E=1`, needs docker). `runE2E` starts a throwaway PostgreSQL container, generates a testdata proto through the real pipeline into a temp Go module, and runs a driver against the live database. Two cases: `relation.proto` (nullability, `ON DELETE SET NULL`) and `eager.proto` (FieldMask column selection, eager loading both directions, two levels deep). They need separate containers because both protos declare `tbl_author`/`tbl_book`. The SQL driver (`lib/pq`) lives in the temp module's `go.mod`, never in this repo's — that's how the e2e keeps the two-dependency rule.
 
 ## Architecture
@@ -63,7 +64,7 @@ pkg/query     (runtime, not generated)   Mask, Conn/Select, In/Key/Keys placehol
 
 Writers are plain functions registered in a slice in `generator.go` (`writers: []func(writer.Printer, types.TableRepo) writer.Writer{schema.New, scanner.New}`). Adding a new generated artifact means adding a new writer package + appending it to that slice — no changes needed to the core loop.
 
-Both writers use Go `html/template` (not `text/template`) against small local `Table`/`Column` view-model structs — they translate the richer `types.Table`/`types.Column` domain model into template-friendly shapes right before executing.
+Writers use `text/template` against small local `Table`/`Column` view-model structs — they translate the richer `types.Table`/`types.Column` domain model into template-friendly shapes right before executing. (They used `html/template` until it was found to escape quotes inside substituted values, which mangles emitted SQL such as `kind IN ('person')`; only template *literals* are left alone, so the bug stayed hidden until a value contained a quote.)
 
 ### Domain model (`pkg/generator/sqlmap/types`)
 
@@ -76,16 +77,24 @@ Both writers use Go `html/template` (not `text/template`) against small local `T
 
 ### Relations and eager loading (`types/relation.go`, `pkg/writer/query`)
 
-A message-kind field with a `foreign_key` is a **relation**; the field's cardinality picks the direction, so one option syntax covers both:
+A message-kind field with a `foreign_key` is a **relation**; cardinality picks the direction:
 
-- **singular** (`optional Publisher publisher = 4`) — belongs-to. It is *both* a column (holding the key) and a relation. The scanner keeps the raw key in `fk_<column>_id` because the Go field is the message the relation will be filled with.
-- **repeated** (`repeated Book books = 3`) — has-many. The key lives on the target rows, so it is a relation **only**: `NewTableFromDescriptor` keeps it out of `GetColumns()`, which is what stops it becoming a bogus column and a bogus schema FK.
+- **singular** — belongs-to. Both a column (holding the key) and a relation; the scanner keeps the raw key in `fk_<column>_id`.
+- **repeated** — has-many. A relation *only*: `NewTableFromDescriptor` keeps it out of `GetColumns()`, which stops it becoming a bogus column and schema FK.
 
-In both cases `ForeignKey.Fieldnames` names columns on the *target* table, resolved by `types.ResolveRefColumns` (SQL name first, then Go name — both spellings exist in the wild).
+`ForeignKey.Fieldnames` always names columns on the *target*, resolved by `types.ResolveRefColumns` (SQL name first, then Go name).
 
-Related rows are fetched with one batched `IN (...)` query per relation and stitched in Go, not joined — a join would multiply the parent row out once per child. Because a child load calls the child's own `Load<T>Rows`, nesting is recursive and nested mask paths (`books.publisher.name`) work for free. `extra ...string` forces the join column into the child's SELECT even when the mask omits it.
+Related rows are fetched with one batched `IN (...)` per relation and stitched in Go, not joined. A child load calls the child's own `Load<T>Rows`, so nesting is recursive and `books.publisher.name` works for free; `extra ...string` forces the join column into the child's SELECT.
 
-The FieldMask drives column selection *and* which relations load, so an unmasked relation costs no query. Primary keys are always selected regardless of the mask, since they are what stitching keys on. `query.Key` normalizes join keys because one side comes from a driver (`any`) and the other from a typed getter, and drivers disagree on integer width and `[]byte` vs `string`.
+The mask drives column selection *and* which relations load. PKs are always selected, since stitching keys on them. `query.Key` normalizes join keys because drivers disagree on integer width and `[]byte` vs `string`.
+
+### Joined-table subtypes (`types/subtype.go`, `docs/design/DESIGN-SUBTYPE-TABLES.md`)
+
+A `oneof` carrying `option (sqlmap.v1.subtypes) = {discriminator: "kind"}` makes its message a supertype; each arm's table declares `subtype_of` in its table option. The supertype gets a synthesized `kind` column, `CHECK (kind IN (...))`, and a **unique index over (pk..., kind)** — a FK can only reference a uniquely-constrained set. Each subtype gets the same column with `DEFAULT`/`CHECK` pinning it, plus a **composite** FK `(key..., kind) -> super(pk..., kind)`. That makes "at most one subtype" a database guarantee; at-least-one is not declaratively enforceable and is left to the application.
+
+The discriminator has no proto field, so its var is `<Msg>DiscriminatorColumn`, avoiding collision with a real field. A subtype's key columns must *not* also declare a `foreign_key` — `subtype_of` implies it.
+
+`SchemaCheck.expr` is a **per-dialect map**: without `ANSI_QUOTES`, MySQL reads `"kind"` as a *string literal*, so the CHECK is accepted and then rejects every row. `toSchema` errors rather than falling back to another dialect's expression. Fragments go through the template's `q` (`strconv.Quote`), since a MySQL expression contains backticks.
 
 ### Proto extensions (`proto/sqlmap/v1/sqlmap.proto`)
 

@@ -1,9 +1,11 @@
 package schema
 
+// text/template, not html/template: HTML escaping mangles quotes in Go source.
 import (
 	"fmt"
-	"html/template"
+	"strconv"
 	"strings"
+	"text/template"
 
 	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 
@@ -12,16 +14,13 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-// dialects is the set of SQL dialects every generated column carries a
-// SchemaType entry for, so one generated file serves any of them at runtime.
+// dialects every generated column carries a type for, so one file serves all.
 var dialects = []string{"mysql", "postgres", "sqlite3"}
 
-// schemaV1ImportPath is the generated Go package holding SchemaTable/SchemaColumn/
-// SchemaForeignKey and the PK/OnDelete enums that this writer emits into.
+// schemaV1ImportPath holds the SchemaTable/SchemaColumn types this writer emits.
 const schemaV1ImportPath = protogen.GoImportPath("github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1")
 
-// protoImportPath is google.golang.org/protobuf/proto, used for proto.String()
-// to populate the schema.v1 messages' proto2 *string fields.
+// protoImportPath supplies proto.String() for the schema.v1 *string fields.
 const protoImportPath = protogen.GoImportPath("google.golang.org/protobuf/proto")
 
 const templateStr = `
@@ -30,7 +29,7 @@ const templateStr = `
 var (
 {{- $msg := .Name }}
 {{- range .Columns }}
-	{{ $msg }}ColumnDef_{{ .Name }} = &{{ $pkg }}.SchemaColumn{
+	{{ .VarName }} = &{{ $pkg }}.SchemaColumn{
 		Name: {{ $proto }}.String("{{ .SQLName }}"),
 		Type: map[string]string{
 			{{ range $k, $v := .Type }}"{{ $k }}": "{{ $v }}",
@@ -38,6 +37,9 @@ var (
 		},
 		Pk: {{ $pkg }}.{{ .Pk }}.Enum(),
 		Nullable: {{ $proto }}.Bool({{ .Nullable }}),
+		{{- if .DefaultExpr }}
+		DefaultExpr: {{ $proto }}.String({{ q .DefaultExpr }}),
+		{{- end }}
 	}
 {{- end }}
 )
@@ -45,9 +47,38 @@ var {{ $msg }}Table = &{{ $pkg }}.SchemaTable{
 	Name: {{ $proto }}.String("{{ .TableName }}"),
 	Columns: []*{{ $pkg }}.SchemaColumn{
 		{{- range .Columns }}
-		{{ $msg }}ColumnDef_{{ .Name }},
+		{{ .VarName }},
 		{{- end }}
 	},
+	{{- if .Checks }}
+	Checks: []*{{ $pkg }}.SchemaCheck{
+		{{- range .Checks }}
+		{
+			Name: {{ $proto }}.String("{{ .Name }}"),
+			Expr: map[string]string{
+				{{- range $k, $v := .Expr }}
+				"{{ $k }}": {{ q $v }},
+				{{- end }}
+			},
+		},
+		{{- end }}
+	},
+	{{- end }}
+	{{- if .Indexes }}
+	Indexes: []*{{ $pkg }}.SchemaIndex{
+		{{- range .Indexes }}
+		{
+			Name: {{ $proto }}.String("{{ .Name }}"),
+			Unique: {{ $proto }}.Bool({{ .Unique }}),
+			Columns: []*{{ $pkg }}.SchemaColumn{
+				{{- range .Columns }}
+				{{ . }},
+				{{- end }}
+			},
+		},
+		{{- end }}
+	},
+	{{- end }}
 }
 
 func init() {
@@ -73,11 +104,25 @@ func init() {
 `
 
 type Column struct {
-	Name     string // Go identifier suffix for the ColumnDef_ var, e.g. "Id"
-	SQLName  string // actual SQL column name, e.g. "simple_id"
-	Type     map[string]string
-	Pk       string
-	Nullable bool
+	VarName     string // Go var holding this column, e.g. "SimpleColumnDef_Id"
+	SQLName     string // actual SQL column name, e.g. "simple_id"
+	Type        map[string]string
+	Pk          string
+	Nullable    bool
+	DefaultExpr string // raw SQL, emitted verbatim; empty means none
+}
+
+type Check struct {
+	Name string
+	// Expr is per dialect: identifier quoting differs, and getting it wrong on
+	// MySQL yields a silently always-false constraint.
+	Expr map[string]string
+}
+
+type Index struct {
+	Name    string
+	Columns []string // Go var names
+	Unique  bool
 }
 
 type Table struct {
@@ -87,6 +132,8 @@ type Table struct {
 	ProtoPkg    string
 	Columns     []*Column
 	ForeignKeys []*ForeignKey
+	Checks      []*Check
+	Indexes     []*Index
 }
 
 type ForeignKey struct {
@@ -96,8 +143,8 @@ type ForeignKey struct {
 	OnDelete          string
 }
 
-// pkGoIdent returns the generated Go constant identifier (not PK's proto
-// enum-value name, which protoc-gen-go doesn't prefix the same way) for pk.
+// pkGoIdent returns the generated Go constant, which protoc-gen-go prefixes
+// differently from the proto enum-value name.
 func pkGoIdent(pk schemav1.PK) string {
 	switch pk {
 	case schemav1.PK_PK_AUTO:
@@ -121,7 +168,11 @@ func onDeleteGoIdent(od schemav1.OnDelete) string {
 	}
 }
 
-var tpl = template.Must(template.New("schema").Parse(templateStr))
+// q renders a Go string literal. SQL fragments carry quotes of their own, and
+// a backtick cannot appear in a Go raw string at all.
+var tplFuncs = template.FuncMap{"q": strconv.Quote}
+
+var tpl = template.Must(template.New("schema").Funcs(tplFuncs).Parse(templateStr))
 
 type SchemaWriter struct {
 	o    writer.Printer
@@ -164,7 +215,7 @@ func (s *SchemaWriter) table(table *types.Table) error {
 
 	for _, c := range table.GetColumns() {
 		col := &Column{
-			Name:     c.GetName(),
+			VarName:  columnVar(table, c.GetName()),
 			SQLName:  c.GetFieldname(),
 			Pk:       pkGoIdent(c.Def.GetPk()),
 			Nullable: c.IsNullable(),
@@ -196,20 +247,169 @@ func (s *SchemaWriter) table(table *types.Table) error {
 			if !ok {
 				return fmt.Errorf("table %q: foreign key column %q not found", table.GetTableName(), name)
 			}
-			out.Columns = append(out.Columns, fmt.Sprintf("%sColumnDef_%s", table.GetMessageName(), f.GetName()))
+			out.Columns = append(out.Columns, columnVar(table, f.GetName()))
 		}
 		for _, name := range fk.To.GetFieldnames() {
 			f, ok := refTable.GetColumnByFieldName(name)
 			if !ok {
 				return fmt.Errorf("table %q: referenced column %q not found on %q", table.GetTableName(), name, refTable.GetTableName())
 			}
-			ident := fmt.Sprintf("%sColumnDef_%s", refTable.GetMessageName(), f.GetName())
-			out.ReferencedColumns = append(out.ReferencedColumns, s.colDefIdent(refTable, ident, external))
+			out.ReferencedColumns = append(out.ReferencedColumns,
+				s.colDefIdent(refTable, columnVar(refTable, f.GetName()), external))
 		}
 		tbl.ForeignKeys = append(tbl.ForeignKeys, out)
 	}
 
+	if err := s.subtypes(table, &tbl); err != nil {
+		return err
+	}
+
 	return tpl.Execute(s.o, tbl)
+}
+
+// columnVar is the Go var holding a column definition.
+func columnVar(table *types.Table, goName string) string {
+	return fmt.Sprintf("%sColumnDef_%s", table.GetMessageName(), goName)
+}
+
+// discriminatorVar names the synthesized discriminator column. Deliberately
+// unlike columnVar, which could collide with a real field.
+func discriminatorVar(table *types.Table) string {
+	return fmt.Sprintf("%sDiscriminatorColumn", table.GetMessageName())
+}
+
+// subtypes emits the joined-table subtype constraints, on either side. See
+// docs/design/DESIGN-SUBTYPE-TABLES.md.
+func (s *SchemaWriter) subtypes(table *types.Table, tbl *Table) error {
+	if err := s.superTable(table, tbl); err != nil {
+		return err
+	}
+	return s.subTable(table, tbl)
+}
+
+func (s *SchemaWriter) superTable(table *types.Table, tbl *Table) error {
+	h, err := table.GetHierarchy(s.repo)
+	if err != nil || h == nil {
+		return err
+	}
+	pks := table.GetPKColumns()
+	if len(pks) == 0 {
+		return fmt.Errorf("table %q declares subtypes but has no primary key for them to reference", table.GetTableName())
+	}
+
+	name := h.GetDiscriminatorName()
+	tbl.Columns = append(tbl.Columns, s.discriminatorColumn(table, h, ""))
+
+	values := make([]string, len(h.Subtypes))
+	for i, sub := range h.Subtypes {
+		values[i] = sqlLiteral(sub.Value)
+	}
+	tbl.Checks = append(tbl.Checks, &Check{
+		Name: fmt.Sprintf("%s_%s_check", table.GetTableName(), name),
+		Expr: perDialect(func(d string) string {
+			return fmt.Sprintf("%s IN (%s)", quoteIdent(d, name), strings.Join(values, ", "))
+		}),
+	})
+
+	// A foreign key needs a uniquely-constrained target, even though the key
+	// alone is already unique.
+	idx := &Index{
+		Name:   fmt.Sprintf("%s_%s_key", table.GetTableName(), name),
+		Unique: true,
+	}
+	for _, pk := range pks {
+		idx.Columns = append(idx.Columns, columnVar(table, pk.GetName()))
+	}
+	idx.Columns = append(idx.Columns, discriminatorVar(table))
+	tbl.Indexes = append(tbl.Indexes, idx)
+	return nil
+}
+
+func (s *SchemaWriter) subTable(table *types.Table, tbl *Table) error {
+	h, sub, err := table.GetSuper(s.repo)
+	if err != nil || h == nil {
+		return err
+	}
+	keys, err := table.GetSubtypeKeyColumns()
+	if err != nil {
+		return err
+	}
+	super := h.Super
+	superPKs := super.GetPKColumns()
+	if len(keys) != len(superPKs) {
+		return fmt.Errorf("table %q links to %q on %d column(s) but %q has %d primary key column(s)",
+			table.GetTableName(), super.GetTableName(), len(keys), super.GetTableName(), len(superPKs))
+	}
+
+	name := h.GetDiscriminatorName()
+	tbl.Columns = append(tbl.Columns, s.discriminatorColumn(table, h, sub.Value))
+	tbl.Checks = append(tbl.Checks, &Check{
+		Name: fmt.Sprintf("%s_%s_check", table.GetTableName(), name),
+		Expr: perDialect(func(d string) string {
+			return fmt.Sprintf("%s = %s", quoteIdent(d, name), sqlLiteral(sub.Value))
+		}),
+	})
+
+	external := super.File.GoImportPath != table.File.GoImportPath
+	fk := &ForeignKey{
+		ReferencedTable: s.colDefIdent(super, fmt.Sprintf("%sTable", super.GetMessageName()), external),
+		OnDelete:        onDeleteGoIdent(table.Def.GetSubtypeOf().GetOnDelete()),
+	}
+	for _, k := range keys {
+		fk.Columns = append(fk.Columns, columnVar(table, k.GetName()))
+	}
+	fk.Columns = append(fk.Columns, discriminatorVar(table))
+	for _, pk := range superPKs {
+		fk.ReferencedColumns = append(fk.ReferencedColumns,
+			s.colDefIdent(super, columnVar(super, pk.GetName()), external))
+	}
+	fk.ReferencedColumns = append(fk.ReferencedColumns,
+		s.colDefIdent(super, discriminatorVar(super), external))
+	tbl.ForeignKeys = append(tbl.ForeignKeys, fk)
+	return nil
+}
+
+// discriminatorColumn builds the synthesized discriminator; a non-empty value
+// pins it with a DEFAULT so subtype inserts need not name it.
+func (s *SchemaWriter) discriminatorColumn(table *types.Table, h *types.Hierarchy, value string) *Column {
+	col := &Column{
+		VarName:  discriminatorVar(table),
+		SQLName:  h.GetDiscriminatorName(),
+		Pk:       pkGoIdent(schemav1.PK_PK_UNSPECIFIED),
+		Nullable: false,
+		Type:     make(map[string]string, len(dialects)),
+	}
+	for _, d := range dialects {
+		col.Type[d] = h.GetDiscriminatorType(d)
+	}
+	if value != "" {
+		col.DefaultExpr = sqlLiteral(value)
+	}
+	return col
+}
+
+// sqlLiteral renders a string as a SQL literal, doubling any embedded quote.
+func sqlLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+// perDialect builds the same expression for every supported dialect.
+func perDialect(build func(dialect string) string) map[string]string {
+	out := make(map[string]string, len(dialects))
+	for _, d := range dialects {
+		out[d] = build(d)
+	}
+	return out
+}
+
+// quoteIdent quotes an identifier for a CHECK expression. MySQL needs
+// backticks: without ANSI_QUOTES it reads "kind" as a string literal, so the
+// constraint is accepted and then rejects every row.
+func quoteIdent(dialect, s string) string {
+	if dialect == "mysql" {
+		return "`" + strings.ReplaceAll(s, "`", "``") + "`"
+	}
+	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 
 // colDefIdent qualifies ident with refTable's import path when the referenced

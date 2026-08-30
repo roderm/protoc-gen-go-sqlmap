@@ -1,8 +1,9 @@
 package scanner
 
+// text/template, not html/template: HTML escaping mangles quotes in Go source.
 import (
-	"html/template"
 	"strings"
+	"text/template"
 
 	schemav1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	sqlmapv1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/sqlmap/v1"
@@ -109,23 +110,19 @@ type Column struct {
 
 type Table struct {
 	Name string
-	// SQLPkg and TimestamppbPkg are only referenced by the template when the
-	// table has a timestamp column, so they stay empty otherwise -- asking
-	// protogen to qualify an identifier is what adds the import, and an
-	// unused import would not compile.
+	// Empty unless the table has a timestamp column: qualifying an identifier
+	// is what adds the import, and an unused one would not compile.
 	SQLPkg         string
 	TimestamppbPkg string
 	Columns        []*Column
 }
 
-// timestamppbImportPath provides timestamppb.New, used to turn the time.Time
-// a driver returns into the message field's *timestamppb.Timestamp.
+// timestamppbImportPath provides timestamppb.New for the scanned time.Time.
 const timestamppbImportPath = protogen.GoImportPath("google.golang.org/protobuf/types/known/timestamppb")
 
 var tpl = template.Must(template.New("schema").Parse(templateStr))
 
-// pkgAlias resolves the local alias protogen assigned to an import, by asking
-// for a known identifier from it and trimming that identifier back off.
+// pkgAlias resolves the local alias protogen assigned to an import.
 func (s *SchemaWriter) pkgAlias(goName string, path protogen.GoImportPath, suffix string) string {
 	return strings.TrimSuffix(s.o.QualifiedGoIdent(protogen.GoIdent{
 		GoName:       goName,
@@ -163,8 +160,7 @@ func (s *SchemaWriter) table(table *types.Table) error {
 	tbl := Table{Name: table.GetMessageName()}
 	for _, c := range table.GetColumns() {
 		if c.IsTimestamp() {
-			// Requested lazily: qualifying an identifier is what registers the
-			// import, and a table with no timestamp column must not carry one.
+			// Lazy: requesting these is what adds the imports.
 			tbl.SQLPkg = s.pkgAlias("NullTime", "database/sql", ".NullTime")
 			tbl.TimestamppbPkg = s.pkgAlias("New", timestamppbImportPath, ".New")
 		}

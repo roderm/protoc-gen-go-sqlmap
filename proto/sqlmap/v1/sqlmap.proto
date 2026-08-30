@@ -10,6 +10,10 @@ import "google/protobuf/descriptor.proto";
 message Table {
   required string name = 1;
   repeated ForeignKeyDefinition foreign_keys = 2;
+
+  // Marks this table as one arm of a supertype's oneof. Implies the foreign
+  // key back, so the key columns must not declare one themselves.
+  optional SubtypeOf subtype_of = 3;
 }
 
 message Column {
@@ -41,4 +45,34 @@ message ForeignKeyDefinition {
 message ForeignKey {
   optional string entity = 1;
   repeated string fieldnames = 2;
+}
+
+// Subtypes marks a oneof as a joined-table subtype hierarchy. See
+// docs/design/DESIGN-SUBTYPE-TABLES.md.
+message Subtypes {
+  // Column added to this table recording which subtype each row is.
+  required string discriminator = 1;
+
+  // Type of the discriminator column per dialect. Defaults to VARCHAR(32).
+  map<string, string> type = 2;
+}
+
+// SubtypeOf names the supertype a table details.
+message SubtypeOf {
+  // Supertype message; its oneof must carry the `subtypes` option.
+  required string entity = 1;
+
+  // Discriminator value for this subtype. Defaults to the oneof field's name.
+  optional string value = 2;
+
+  // Columns on THIS table carrying the supertype's key, defaulting to its
+  // primary key. The referenced side is always the supertype's primary key,
+  // so the counts must match.
+  repeated string fieldnames = 3;
+
+  optional schema.v1.OnDelete on_delete = 4;
+}
+
+extend google.protobuf.OneofOptions {
+  optional Subtypes subtypes = 800140;
 }

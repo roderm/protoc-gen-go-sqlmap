@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/sfpb";
+
+message Identity {
+  option (sqlmap.v1.table) = { name: "identity" };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+
+  oneof type {
+    option (sqlmap.v1.subtypes) = { discriminator: "kind" };
+    Person person = 5;
+  }
+}
+
+// Person has its own primary key, so subtype_of.fieldnames names the link.
+message Person {
+  option (sqlmap.v1.table) = {
+    name: "person"
+    subtype_of: { entity: "Identity", fieldnames: ["identity_id"] }
+  };
+  string person_id = 1 [(sqlmap.v1.col) = { fieldname: "person_id", pk: PK_MAN }];
+  string identity_id = 2 [(sqlmap.v1.col) = { fieldname: "identity_id" }];
+}

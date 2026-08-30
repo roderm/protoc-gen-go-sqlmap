@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/badpb";
+
+// Person links on two columns; Identity's primary key is one.
+message Identity {
+  option (sqlmap.v1.table) = { name: "identity" };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+
+  oneof type {
+    option (sqlmap.v1.subtypes) = { discriminator: "kind" };
+    Person person = 5;
+  }
+}
+
+message Person {
+  option (sqlmap.v1.table) = {
+    name: "person"
+    subtype_of: { entity: "Identity", fieldnames: ["identity_id", "tenant_id"] }
+  };
+  string person_id = 1 [(sqlmap.v1.col) = { fieldname: "person_id", pk: PK_MAN }];
+  string identity_id = 2 [(sqlmap.v1.col) = { fieldname: "identity_id" }];
+  string tenant_id = 3 [(sqlmap.v1.col) = { fieldname: "tenant_id" }];
+}

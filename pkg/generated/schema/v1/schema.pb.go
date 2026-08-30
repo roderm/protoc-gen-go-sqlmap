@@ -120,11 +120,13 @@ func (OnDelete) EnumDescriptor() ([]byte, []int) {
 }
 
 type SchemaColumn struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Type          map[string]string      `protobuf:"bytes,2,rep,name=type,proto3" json:"type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Pk            *PK                    `protobuf:"varint,3,opt,name=pk,proto3,enum=schema.v1.PK,oneof" json:"pk,omitempty"`
-	Nullable      *bool                  `protobuf:"varint,4,opt,name=nullable,proto3,oneof" json:"nullable,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Name     *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Type     map[string]string      `protobuf:"bytes,2,rep,name=type,proto3" json:"type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Pk       *PK                    `protobuf:"varint,3,opt,name=pk,proto3,enum=schema.v1.PK,oneof" json:"pk,omitempty"`
+	Nullable *bool                  `protobuf:"varint,4,opt,name=nullable,proto3,oneof" json:"nullable,omitempty"`
+	// Raw SQL default, e.g. "'person'". Emitted verbatim, quotes included.
+	DefaultExpr   *string `protobuf:"bytes,5,opt,name=default_expr,json=defaultExpr,proto3,oneof" json:"default_expr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -187,6 +189,128 @@ func (x *SchemaColumn) GetNullable() bool {
 	return false
 }
 
+func (x *SchemaColumn) GetDefaultExpr() string {
+	if x != nil && x.DefaultExpr != nil {
+		return *x.DefaultExpr
+	}
+	return ""
+}
+
+// SchemaCheck is a table-level CHECK. The expression is per dialect because
+// identifier quoting is not portable, and MySQL reads a double-quoted
+// identifier as a string literal rather than rejecting it.
+type SchemaCheck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Expr          map[string]string      `protobuf:"bytes,2,rep,name=expr,proto3" json:"expr,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SchemaCheck) Reset() {
+	*x = SchemaCheck{}
+	mi := &file_schema_v1_schema_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SchemaCheck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SchemaCheck) ProtoMessage() {}
+
+func (x *SchemaCheck) ProtoReflect() protoreflect.Message {
+	mi := &file_schema_v1_schema_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SchemaCheck.ProtoReflect.Descriptor instead.
+func (*SchemaCheck) Descriptor() ([]byte, []int) {
+	return file_schema_v1_schema_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SchemaCheck) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *SchemaCheck) GetExpr() map[string]string {
+	if x != nil {
+		return x.Expr
+	}
+	return nil
+}
+
+type SchemaIndex struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Columns       []*SchemaColumn        `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
+	Unique        *bool                  `protobuf:"varint,3,opt,name=unique,proto3,oneof" json:"unique,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SchemaIndex) Reset() {
+	*x = SchemaIndex{}
+	mi := &file_schema_v1_schema_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SchemaIndex) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SchemaIndex) ProtoMessage() {}
+
+func (x *SchemaIndex) ProtoReflect() protoreflect.Message {
+	mi := &file_schema_v1_schema_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SchemaIndex.ProtoReflect.Descriptor instead.
+func (*SchemaIndex) Descriptor() ([]byte, []int) {
+	return file_schema_v1_schema_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *SchemaIndex) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *SchemaIndex) GetColumns() []*SchemaColumn {
+	if x != nil {
+		return x.Columns
+	}
+	return nil
+}
+
+func (x *SchemaIndex) GetUnique() bool {
+	if x != nil && x.Unique != nil {
+		return *x.Unique
+	}
+	return false
+}
+
 type SchemaForeignKey struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Columns       []*SchemaColumn        `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"`
@@ -199,7 +323,7 @@ type SchemaForeignKey struct {
 
 func (x *SchemaForeignKey) Reset() {
 	*x = SchemaForeignKey{}
-	mi := &file_schema_v1_schema_proto_msgTypes[1]
+	mi := &file_schema_v1_schema_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -211,7 +335,7 @@ func (x *SchemaForeignKey) String() string {
 func (*SchemaForeignKey) ProtoMessage() {}
 
 func (x *SchemaForeignKey) ProtoReflect() protoreflect.Message {
-	mi := &file_schema_v1_schema_proto_msgTypes[1]
+	mi := &file_schema_v1_schema_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -224,7 +348,7 @@ func (x *SchemaForeignKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SchemaForeignKey.ProtoReflect.Descriptor instead.
 func (*SchemaForeignKey) Descriptor() ([]byte, []int) {
-	return file_schema_v1_schema_proto_rawDescGZIP(), []int{1}
+	return file_schema_v1_schema_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SchemaForeignKey) GetColumns() []*SchemaColumn {
@@ -260,13 +384,15 @@ type SchemaTable struct {
 	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Columns       []*SchemaColumn        `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
 	ForeignKeys   []*SchemaForeignKey    `protobuf:"bytes,3,rep,name=foreign_keys,json=foreignKeys,proto3" json:"foreign_keys,omitempty"`
+	Checks        []*SchemaCheck         `protobuf:"bytes,4,rep,name=checks,proto3" json:"checks,omitempty"`
+	Indexes       []*SchemaIndex         `protobuf:"bytes,5,rep,name=indexes,proto3" json:"indexes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SchemaTable) Reset() {
 	*x = SchemaTable{}
-	mi := &file_schema_v1_schema_proto_msgTypes[2]
+	mi := &file_schema_v1_schema_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -278,7 +404,7 @@ func (x *SchemaTable) String() string {
 func (*SchemaTable) ProtoMessage() {}
 
 func (x *SchemaTable) ProtoReflect() protoreflect.Message {
-	mi := &file_schema_v1_schema_proto_msgTypes[2]
+	mi := &file_schema_v1_schema_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -291,7 +417,7 @@ func (x *SchemaTable) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SchemaTable.ProtoReflect.Descriptor instead.
 func (*SchemaTable) Descriptor() ([]byte, []int) {
-	return file_schema_v1_schema_proto_rawDescGZIP(), []int{2}
+	return file_schema_v1_schema_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SchemaTable) GetName() string {
@@ -315,22 +441,51 @@ func (x *SchemaTable) GetForeignKeys() []*SchemaForeignKey {
 	return nil
 }
 
+func (x *SchemaTable) GetChecks() []*SchemaCheck {
+	if x != nil {
+		return x.Checks
+	}
+	return nil
+}
+
+func (x *SchemaTable) GetIndexes() []*SchemaIndex {
+	if x != nil {
+		return x.Indexes
+	}
+	return nil
+}
+
 var File_schema_v1_schema_proto protoreflect.FileDescriptor
 
 const file_schema_v1_schema_proto_rawDesc = "" +
 	"\n" +
-	"\x16schema/v1/schema.proto\x12\tschema.v1\"\xf9\x01\n" +
+	"\x16schema/v1/schema.proto\x12\tschema.v1\"\xb2\x02\n" +
 	"\fSchemaColumn\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x125\n" +
 	"\x04type\x18\x02 \x03(\v2!.schema.v1.SchemaColumn.TypeEntryR\x04type\x12\"\n" +
 	"\x02pk\x18\x03 \x01(\x0e2\r.schema.v1.PKH\x01R\x02pk\x88\x01\x01\x12\x1f\n" +
-	"\bnullable\x18\x04 \x01(\bH\x02R\bnullable\x88\x01\x01\x1a7\n" +
+	"\bnullable\x18\x04 \x01(\bH\x02R\bnullable\x88\x01\x01\x12&\n" +
+	"\fdefault_expr\x18\x05 \x01(\tH\x03R\vdefaultExpr\x88\x01\x01\x1a7\n" +
 	"\tTypeEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +
 	"\x05_nameB\x05\n" +
 	"\x03_pkB\v\n" +
-	"\t_nullable\"\x8c\x02\n" +
+	"\t_nullableB\x0f\n" +
+	"\r_default_expr\"\x9e\x01\n" +
+	"\vSchemaCheck\x12\x17\n" +
+	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x124\n" +
+	"\x04expr\x18\x02 \x03(\v2 .schema.v1.SchemaCheck.ExprEntryR\x04expr\x1a7\n" +
+	"\tExprEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +
+	"\x05_name\"\x8a\x01\n" +
+	"\vSchemaIndex\x12\x17\n" +
+	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x121\n" +
+	"\acolumns\x18\x02 \x03(\v2\x17.schema.v1.SchemaColumnR\acolumns\x12\x1b\n" +
+	"\x06unique\x18\x03 \x01(\bH\x01R\x06unique\x88\x01\x01B\a\n" +
+	"\x05_nameB\t\n" +
+	"\a_unique\"\x8c\x02\n" +
 	"\x10SchemaForeignKey\x121\n" +
 	"\acolumns\x18\x01 \x03(\v2\x17.schema.v1.SchemaColumnR\acolumns\x128\n" +
 	"\tref_table\x18\x02 \x01(\v2\x16.schema.v1.SchemaTableH\x00R\brefTable\x88\x01\x01\x128\n" +
@@ -340,11 +495,13 @@ const file_schema_v1_schema_proto_rawDesc = "" +
 	"\n" +
 	"_ref_tableB\f\n" +
 	"\n" +
-	"_on_delete\"\xa2\x01\n" +
+	"_on_delete\"\x84\x02\n" +
 	"\vSchemaTable\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x121\n" +
 	"\acolumns\x18\x02 \x03(\v2\x17.schema.v1.SchemaColumnR\acolumns\x12>\n" +
-	"\fforeign_keys\x18\x03 \x03(\v2\x1b.schema.v1.SchemaForeignKeyR\vforeignKeysB\a\n" +
+	"\fforeign_keys\x18\x03 \x03(\v2\x1b.schema.v1.SchemaForeignKeyR\vforeignKeys\x12.\n" +
+	"\x06checks\x18\x04 \x03(\v2\x16.schema.v1.SchemaCheckR\x06checks\x120\n" +
+	"\aindexes\x18\x05 \x03(\v2\x16.schema.v1.SchemaIndexR\aindexesB\a\n" +
 	"\x05_name*1\n" +
 	"\x02PK\x12\x12\n" +
 	"\x0ePK_UNSPECIFIED\x10\x00\x12\v\n" +
@@ -371,29 +528,36 @@ func file_schema_v1_schema_proto_rawDescGZIP() []byte {
 }
 
 var file_schema_v1_schema_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_schema_v1_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_schema_v1_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_schema_v1_schema_proto_goTypes = []any{
 	(PK)(0),                  // 0: schema.v1.PK
 	(OnDelete)(0),            // 1: schema.v1.OnDelete
 	(*SchemaColumn)(nil),     // 2: schema.v1.SchemaColumn
-	(*SchemaForeignKey)(nil), // 3: schema.v1.SchemaForeignKey
-	(*SchemaTable)(nil),      // 4: schema.v1.SchemaTable
-	nil,                      // 5: schema.v1.SchemaColumn.TypeEntry
+	(*SchemaCheck)(nil),      // 3: schema.v1.SchemaCheck
+	(*SchemaIndex)(nil),      // 4: schema.v1.SchemaIndex
+	(*SchemaForeignKey)(nil), // 5: schema.v1.SchemaForeignKey
+	(*SchemaTable)(nil),      // 6: schema.v1.SchemaTable
+	nil,                      // 7: schema.v1.SchemaColumn.TypeEntry
+	nil,                      // 8: schema.v1.SchemaCheck.ExprEntry
 }
 var file_schema_v1_schema_proto_depIdxs = []int32{
-	5, // 0: schema.v1.SchemaColumn.type:type_name -> schema.v1.SchemaColumn.TypeEntry
-	0, // 1: schema.v1.SchemaColumn.pk:type_name -> schema.v1.PK
-	2, // 2: schema.v1.SchemaForeignKey.columns:type_name -> schema.v1.SchemaColumn
-	4, // 3: schema.v1.SchemaForeignKey.ref_table:type_name -> schema.v1.SchemaTable
-	2, // 4: schema.v1.SchemaForeignKey.ref_columns:type_name -> schema.v1.SchemaColumn
-	1, // 5: schema.v1.SchemaForeignKey.on_delete:type_name -> schema.v1.OnDelete
-	2, // 6: schema.v1.SchemaTable.columns:type_name -> schema.v1.SchemaColumn
-	3, // 7: schema.v1.SchemaTable.foreign_keys:type_name -> schema.v1.SchemaForeignKey
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	7,  // 0: schema.v1.SchemaColumn.type:type_name -> schema.v1.SchemaColumn.TypeEntry
+	0,  // 1: schema.v1.SchemaColumn.pk:type_name -> schema.v1.PK
+	8,  // 2: schema.v1.SchemaCheck.expr:type_name -> schema.v1.SchemaCheck.ExprEntry
+	2,  // 3: schema.v1.SchemaIndex.columns:type_name -> schema.v1.SchemaColumn
+	2,  // 4: schema.v1.SchemaForeignKey.columns:type_name -> schema.v1.SchemaColumn
+	6,  // 5: schema.v1.SchemaForeignKey.ref_table:type_name -> schema.v1.SchemaTable
+	2,  // 6: schema.v1.SchemaForeignKey.ref_columns:type_name -> schema.v1.SchemaColumn
+	1,  // 7: schema.v1.SchemaForeignKey.on_delete:type_name -> schema.v1.OnDelete
+	2,  // 8: schema.v1.SchemaTable.columns:type_name -> schema.v1.SchemaColumn
+	5,  // 9: schema.v1.SchemaTable.foreign_keys:type_name -> schema.v1.SchemaForeignKey
+	3,  // 10: schema.v1.SchemaTable.checks:type_name -> schema.v1.SchemaCheck
+	4,  // 11: schema.v1.SchemaTable.indexes:type_name -> schema.v1.SchemaIndex
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_schema_v1_schema_proto_init() }
@@ -404,13 +568,15 @@ func file_schema_v1_schema_proto_init() {
 	file_schema_v1_schema_proto_msgTypes[0].OneofWrappers = []any{}
 	file_schema_v1_schema_proto_msgTypes[1].OneofWrappers = []any{}
 	file_schema_v1_schema_proto_msgTypes[2].OneofWrappers = []any{}
+	file_schema_v1_schema_proto_msgTypes[3].OneofWrappers = []any{}
+	file_schema_v1_schema_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schema_v1_schema_proto_rawDesc), len(file_schema_v1_schema_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   4,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

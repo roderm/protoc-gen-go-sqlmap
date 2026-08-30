@@ -140,9 +140,8 @@ func (m *Migrator) ApplyPending(ctx context.Context, n int) error {
 	return ex.ExecuteN(ctx, n)
 }
 
-// diffState inspects the live database and builds the desired schema,
-// scoped to the same schema name as the inspected one so SchemaDiff compares
-// table contents instead of treating them as different schemas entirely.
+// diffState scopes the desired schema to the inspected one's name, so
+// SchemaDiff compares table contents rather than whole schemas.
 func (m *Migrator) diffState(ctx context.Context, tables []*schemav1.SchemaTable) (current, desired *schema.Schema, err error) {
 	realm, err := m.drv.InspectRealm(ctx, nil)
 	if err != nil {
@@ -159,12 +158,9 @@ func (m *Migrator) diffState(ctx context.Context, tables []*schemav1.SchemaTable
 	return current, desired, nil
 }
 
-// toSchema converts the generator's resolved schema into atlas's native
-// schema types. Tables passed to a single call must include every table
-// referenced by a foreign key among them — pointer identity of
-// *schemav1.SchemaColumn/SchemaTable values (the same package-level vars the
-// generator emits) is what lets a foreign key resolve against the exact same
-// *schema.Column/Table instances already added to their owning tables.
+// toSchema converts the resolved schema into atlas's types. One call must
+// include every table referenced by a foreign key among them: resolution goes
+// by pointer identity of the package-level vars the generator emits.
 func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Schema, error) {
 	tblMap := make(map[*schemav1.SchemaTable]*schema.Table, len(tables))
 	colMap := make(map[*schemav1.SchemaColumn]*schema.Column)
@@ -179,6 +175,9 @@ func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Sch
 				return nil, fmt.Errorf("migration: table %q column %q: %w", t.GetName(), c.GetName(), err)
 			}
 			ac := schema.NewColumn(c.GetName()).SetType(typ).SetNull(c.GetNullable())
+			if expr := c.GetDefaultExpr(); expr != "" {
+				ac.SetDefault(&schema.RawExpr{X: expr})
+			}
 			if c.GetPk() == schemav1.PK_PK_AUTO {
 				if err := addAutoIncrement(dialect, ac); err != nil {
 					return nil, fmt.Errorf("migration: table %q column %q: %w", t.GetName(), c.GetName(), err)
@@ -192,6 +191,21 @@ func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Sch
 		}
 		if len(pk) > 0 {
 			at.SetPrimaryKey(schema.NewPrimaryKey(pk...))
+		}
+		for _, chk := range t.GetChecks() {
+			expr, ok := chk.GetExpr()[dialect]
+			if !ok {
+				return nil, fmt.Errorf("migration: table %q check %q has no expression for dialect %q", t.GetName(), chk.GetName(), dialect)
+			}
+			at.AddChecks(schema.NewCheck().SetName(chk.GetName()).SetExpr(expr))
+		}
+		for _, idx := range t.GetIndexes() {
+			cols, err := lookupColumns(colMap, idx.GetColumns())
+			if err != nil {
+				return nil, fmt.Errorf("migration: table %q index %q: %w", t.GetName(), idx.GetName(), err)
+			}
+			ai := schema.NewIndex(idx.GetName()).SetUnique(idx.GetUnique()).AddColumns(cols...)
+			at.AddIndexes(ai)
 		}
 		tblMap[t] = at
 		sch.AddTables(at)
@@ -230,8 +244,7 @@ func toSchema(dialect, name string, tables []*schemav1.SchemaTable) (*schema.Sch
 	return sch, nil
 }
 
-// parseType parses a dialect-specific raw SQL type string (as computed by
-// the generator's Column.GetSqlType) into atlas's native schema.Type.
+// parseType parses a raw SQL type string into atlas's schema.Type.
 func parseType(dialect, raw string) (schema.Type, error) {
 	switch dialect {
 	case DialectPostgres:
@@ -245,16 +258,11 @@ func parseType(dialect, raw string) (schema.Type, error) {
 	}
 }
 
-// addAutoIncrement attaches the dialect-specific attribute that makes a
-// PK_AUTO column auto-generate its value. There's no generic atlas concept
-// for this — each dialect models it differently (MySQL/SQLite: an explicit
-// column attribute; PostgreSQL: an identity-column attribute).
+// addAutoIncrement attaches the dialect-specific auto-generate attribute;
+// atlas has no generic concept for it.
 func addAutoIncrement(dialect string, col *schema.Column) error {
-	// Every dialect restricts generated/auto-increment columns to integers.
-	// Catching it here turns a confusing failure from the database into a
-	// clear one naming the column -- PK_AUTO on a VARCHAR id is an easy
-	// mistake to make when the id is really an application-supplied UUID,
-	// which is what PK_MAN is for.
+	// Every dialect restricts generated columns to integers. Catching it here
+	// names the column instead of failing opaquely in the database.
 	if _, ok := col.Type.Type.(*schema.IntegerType); !ok {
 		return fmt.Errorf("PK_AUTO requires an integer column, but %q is %T; use PK_MAN for an application-supplied key", col.Name, col.Type.Type)
 	}

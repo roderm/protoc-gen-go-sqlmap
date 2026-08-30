@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/badpb";
+
+// Organisation has no table option, so it cannot hold the discriminator.
+message Identity {
+  option (sqlmap.v1.table) = { name: "identity" };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+
+  oneof type {
+    option (sqlmap.v1.subtypes) = { discriminator: "kind" };
+    Person person = 5;
+    Organisation organisation = 6;
+  }
+}
+
+message Person {
+  option (sqlmap.v1.table) = {
+    name: "person"
+    subtype_of: { entity: "Identity" }
+  };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+}
+
+message Organisation {
+  string name = 1;
+}

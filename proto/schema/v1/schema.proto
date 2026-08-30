@@ -19,6 +19,22 @@ message SchemaColumn {
   map<string, string> type = 2;
   optional PK pk = 3;
   optional bool nullable = 4;
+  // Raw SQL default, e.g. "'person'". Emitted verbatim, quotes included.
+  optional string default_expr = 5;
+}
+
+// SchemaCheck is a table-level CHECK. The expression is per dialect because
+// identifier quoting is not portable, and MySQL reads a double-quoted
+// identifier as a string literal rather than rejecting it.
+message SchemaCheck {
+  optional string name = 1;
+  map<string, string> expr = 2;
+}
+
+message SchemaIndex {
+  optional string name = 1;
+  repeated SchemaColumn columns = 2;
+  optional bool unique = 3;
 }
 
 message SchemaForeignKey {
@@ -32,4 +48,6 @@ message SchemaTable {
   optional string name = 1;
   repeated SchemaColumn columns = 2;
   repeated SchemaForeignKey foreign_keys = 3;
+  repeated SchemaCheck checks = 4;
+  repeated SchemaIndex indexes = 5;
 }

@@ -1,9 +1,6 @@
-// Package query is the runtime half of the query writer: the small amount of
-// logic that would otherwise be duplicated into every generated file.
-//
-// Generated code stays dialect-agnostic -- it emits column and table names and
-// leaves placeholder syntax, field-mask interpretation and row batching to the
-// helpers here, so one generated file serves PostgreSQL, MySQL and SQLite.
+// Package query is the runtime half of the query writer. Generated code emits
+// only table and column names and leaves placeholder syntax, field masks and
+// batching to these helpers, so one generated file serves every dialect.
 package query
 
 import (
@@ -16,8 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-// DB is the subset of *sql.DB that generated queries need, so a *sql.Tx or a
-// pooling wrapper works just as well.
+// DB is the subset of *sql.DB generated queries need; *sql.Tx satisfies it too.
 type DB interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
@@ -50,12 +46,8 @@ type Conn struct {
 	Dialect Dialect
 }
 
-// Mask is a parsed google.protobuf.FieldMask: a tree of selected field names,
-// where each node may carry a sub-mask for a nested message.
-//
-// A nil *Mask selects everything, which makes "no mask supplied" and "no
-// restriction below this point" the same value and keeps callers free of nil
-// checks.
+// Mask is a parsed FieldMask: a tree of selected field names. A nil *Mask
+// selects every column and no relations.
 type Mask struct {
 	fields map[string]*Mask
 }
@@ -82,9 +74,8 @@ func NewMask(paths ...string) *Mask {
 			if part == "" {
 				continue
 			}
-			// A nil fields map means an earlier, shorter path already selected
-			// everything below this node, so a narrower path adds nothing --
-			// and descending further would write to that nil map.
+			// A shorter path already selected everything here; descending
+			// further would also write to a nil map.
 			if node.fields == nil {
 				node = nil
 				break
@@ -96,9 +87,8 @@ func NewMask(paths ...string) *Mask {
 			}
 			node = next
 		}
-		// The path ends here, so it selects the whole subtree below it: drop
-		// any narrower sub-mask a longer sibling had installed, so that
-		// ["books.title", "books"] selects all of books, like ["books"] alone.
+		// The path ends here, so it selects everything below: drop any
+		// narrower sub-mask a longer sibling installed.
 		if node != nil && node != root {
 			node.fields = nil
 		}
@@ -116,13 +106,9 @@ func (m *Mask) Has(name string) bool {
 	return ok
 }
 
-// HasRelation reports whether a relation is selected by the mask.
-//
-// Unlike Has, an absent mask selects *no* relations. Eager loading has to be
-// asked for: "everything" would otherwise walk the whole object graph, which
-// never terminates once two tables reference each other. It also means the
-// depth of loading is exactly the depth spelled out in the mask, since the
-// sub-mask below a leaf path is itself absent.
+// HasRelation reports whether a relation is selected. Unlike Has, an absent
+// mask selects none: loading "everything" would never terminate once two
+// tables reference each other.
 func (m *Mask) HasRelation(name string) bool {
 	if m == nil || m.fields == nil {
 		return false
@@ -144,17 +130,15 @@ func (m *Mask) Sub(name string) *Mask {
 	return sub
 }
 
-// Cond is a SQL fragment and its bind arguments. Placeholders are written as
-// "?" and renumbered per dialect when the statement is assembled, so callers
-// never deal with $1/$2 themselves.
+// Cond is a SQL fragment and its arguments. Placeholders are written as "?"
+// and renumbered per dialect when the statement is assembled.
 type Cond struct {
 	SQL  string
 	Args []any
 }
 
-// In builds a `col IN (?, ?, ...)` condition. It returns false when values is
-// empty, since `IN ()` is not valid SQL and the caller should skip the query
-// entirely rather than run one that cannot match.
+// In builds a `col IN (?, ?, ...)` condition, reporting false for no values:
+// `IN ()` is invalid SQL, so the caller should skip the query.
 func In(col string, values []any) (Cond, bool) {
 	if len(values) == 0 {
 		return Cond{}, false
@@ -172,8 +156,7 @@ func In(col string, values []any) (Cond, bool) {
 	return Cond{SQL: b.String(), Args: values}, true
 }
 
-// Select assembles and runs a SELECT, renumbering the "?" placeholders in the
-// conditions to the dialect's syntax and joining them with AND.
+// Select assembles and runs a SELECT, joining conds with AND.
 func (c Conn) Select(ctx context.Context, table string, cols []string, conds []Cond) (*sql.Rows, error) {
 	var b strings.Builder
 	b.WriteString("SELECT ")
@@ -199,8 +182,8 @@ func (c Conn) Select(ctx context.Context, table string, cols []string, conds []C
 	return c.DB.QueryContext(ctx, b.String(), args...)
 }
 
-// renumber rewrites each "?" in sql to the dialect's placeholder, continuing
-// from the count of arguments already bound by earlier conditions.
+// renumber rewrites "?" to the dialect's placeholder, continuing from the
+// arguments earlier conditions already bound.
 func (c Conn) renumber(sql string, bound int) string {
 	if c.Dialect != Postgres {
 		return sql
@@ -217,8 +200,7 @@ func (c Conn) renumber(sql string, bound int) string {
 	return b.String()
 }
 
-// Keys returns the keys of m, which is how a batch of loaded rows turns into
-// the IN list for fetching their related rows.
+// Keys returns the keys of m, forming the IN list for a batched load.
 func Keys[K comparable, V any](m map[K]V) []any {
 	out := make([]any, 0, len(m))
 	for k := range m {
@@ -232,15 +214,9 @@ func Contains[T comparable](s []T, v T) bool {
 	return slices.Contains(s, v)
 }
 
-// Key normalizes a join key so that a value read back from a driver and one
-// read off a generated getter compare equal.
-//
-// Drivers are not consistent about the Go type they produce: the same column
-// can arrive as []byte or string, or as any width of integer, depending on
-// driver and dialect. Since one side of every stitch comes from a driver (the
-// raw foreign-key value) and the other from a typed getter, both go through
-// here before being used as a map key. A nil value returns nil, which callers
-// treat as "no key" and skip.
+// Key normalizes a join key so a value from a driver and one from a typed
+// getter compare equal: drivers disagree on integer width and []byte vs
+// string. nil stays nil, which callers skip.
 func Key(v any) any {
 	switch t := v.(type) {
 	case nil:

@@ -90,8 +90,7 @@ func GetSimpleColumns() []string {
 }
 
 // SimpleQueryColumns returns the columns to select for mask. Primary keys
-// are always included: they are what relations are stitched on, so leaving
-// them out of the mask must not break eager loading.
+// are always included, since relations are stitched on them.
 func SimpleQueryColumns(m *query.Mask, extra ...string) []string {
 	cols := make([]string, 0, 2+len(extra))
 	cols = append(cols, "simple_id")
@@ -107,9 +106,8 @@ func SimpleQueryColumns(m *query.Mask, extra ...string) []string {
 }
 
 // LoadSimpleRows selects tbl_simple rows matching conds and eagerly
-// loads every relation the mask selects. extra names columns that must be in
-// the SELECT regardless of the mask, which is how a parent load makes sure the
-// join key comes back on its children.
+// loads every relation the mask selects. extra forces columns into the SELECT
+// regardless of the mask, which is how a parent gets the join key back.
 func LoadSimpleRows(ctx context.Context, c query.Conn, m *query.Mask, conds []query.Cond, extra ...string) ([]*SimpleResult, error) {
 	cols := SimpleQueryColumns(m, extra...)
 	sqlRows, err := c.Select(ctx, "tbl_simple", cols, conds)
@@ -136,10 +134,8 @@ func LoadSimpleRows(ctx context.Context, c query.Conn, m *query.Mask, conds []qu
 	return rows, nil
 }
 
-// LoadSimple selects tbl_simple rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and loads no relations:
-// eager loading is always opt-in, so the mask alone decides how deep a load
-// goes.
+// LoadSimple selects tbl_simple rows restricted to the fields mask
+// names. A nil or empty mask selects every column and loads no relations.
 func LoadSimple(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Simple, error) {
 	rows, err := LoadSimpleRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {

@@ -10,9 +10,8 @@ import (
 	"time"
 )
 
-// relationDriverSrc asserts the properties only a live database can confirm:
-// that a nullable column really accepts NULL, that a NOT NULL column rejects
-// it, and that the generated foreign key actually applies ON DELETE SET NULL.
+// relationDriverSrc asserts what only a live database confirms: nullability
+// and ON DELETE SET NULL.
 const relationDriverSrc = `package main
 
 import (
@@ -80,10 +79,8 @@ func run(ctx context.Context, db *sql.DB) error {
 }
 `
 
-// eagerDriverSrc exercises the query writer: that a FieldMask restricts the
-// columns actually selected, that it decides which relations are loaded, and
-// that nested paths load two levels deep in both relation directions
-// (has-many Author->Books, belongs-to Book->Publisher).
+// eagerDriverSrc exercises the query writer: mask-driven column selection and
+// eager loading two levels deep in both directions.
 const eagerDriverSrc = `package main
 
 import (
@@ -98,8 +95,7 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-// UTC and whole seconds, so the comparison does not depend on the column's
-// fractional-second precision or on the session time zone.
+// UTC and whole seconds, so the comparison ignores precision and time zone.
 var published = time.Date(1968, 11, 1, 12, 0, 0, 0, time.UTC)
 
 func run(ctx context.Context, db *sql.DB) error {
@@ -254,8 +250,83 @@ func run(ctx context.Context, db *sql.DB) error {
 }
 `
 
-// mainSrc wraps a driver's run() with connection setup, so each driver only
-// contains the assertions that make it distinct.
+// subtypeDriverSrc checks what the database itself rejects, which is the whole
+// point of the discriminator plus composite foreign key.
+const subtypeDriverSrc = `package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"e2etest/subtypepb"
+	"github.com/roderm/protoc-gen-go-sqlmap/pkg/migration"
+)
+
+func run(ctx context.Context, db *sql.DB) error {
+	m, err := migration.New(db, migration.DialectPostgres)
+	if err != nil {
+		return err
+	}
+	if err := m.Create(ctx, subtypepb.IdentityTable, subtypepb.PersonTable, subtypepb.OrganisationTable); err != nil {
+		return fmt.Errorf("Create: %w", err)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO identity (id, kind) VALUES ('i1','person'), ('i2','org')"); err != nil {
+		return fmt.Errorf("insert identities: %w", err)
+	}
+	// kind is defaulted, so a subtype insert never has to name it.
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO person (id, given_name) VALUES ('i1','Ursula')"); err != nil {
+		return fmt.Errorf("insert person: %w", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO organisation (id, name) VALUES ('i2','ACME')"); err != nil {
+		return fmt.Errorf("insert organisation: %w", err)
+	}
+
+	mustFail := func(what, stmt string) error {
+		if _, err := db.ExecContext(ctx, stmt); err == nil {
+			return fmt.Errorf("%s was accepted, but the schema must reject it", what)
+		}
+		return nil
+	}
+	// The identity is a person, so it cannot also be an organisation. This is
+	// the guarantee the whole pattern exists for.
+	if err := mustFail("a second subtype row for one identity",
+		"INSERT INTO organisation (id, name) VALUES ('i1','Bogus')"); err != nil {
+		return err
+	}
+	if err := mustFail("an unknown discriminator value",
+		"INSERT INTO identity (id, kind) VALUES ('i3','robot')"); err != nil {
+		return err
+	}
+	if err := mustFail("a subtype row carrying another subtype's discriminator",
+		"INSERT INTO person (id, kind, given_name) VALUES ('i2','org','X')"); err != nil {
+		return err
+	}
+	if err := mustFail("re-pointing an identity while its subtype row exists",
+		"UPDATE identity SET kind='org' WHERE id='i1'"); err != nil {
+		return err
+	}
+
+	// ON DELETE CASCADE reaches the subtype through the composite key.
+	if _, err := db.ExecContext(ctx, "DELETE FROM identity WHERE id='i1'"); err != nil {
+		return fmt.Errorf("delete identity: %w", err)
+	}
+	var people int
+	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM person").Scan(&people); err != nil {
+		return err
+	}
+	if people != 0 {
+		return fmt.Errorf("deleting the identity left %d person row(s) behind", people)
+	}
+	return nil
+}
+`
+
+// mainSrc wraps a driver's run() with connection setup.
 const mainSrc = `package main
 
 import (
@@ -305,16 +376,14 @@ const (
 	pgDatabase = "sqlmap"
 )
 
-// startPostgres runs a throwaway PostgreSQL container and returns a DSN for
-// it. The container is removed when the test finishes.
+// startPostgres runs a throwaway container, removed when the test finishes.
 func startPostgres(t *testing.T) string {
 	t.Helper()
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker not found in PATH")
 	}
 
-	// Output(), not CombinedOutput(): the container id goes to stdout while
-	// image-pull progress goes to stderr, and mixing them corrupts the id.
+	// Output(), not CombinedOutput(): pull progress on stderr corrupts the id.
 	out, err := exec.Command("docker", "run", "-d", "--rm",
 		"-e", "POSTGRES_USER="+pgUser,
 		"-e", "POSTGRES_PASSWORD="+pgPassword,
@@ -355,13 +424,9 @@ func hostPort(id string) (string, error) {
 	}
 }
 
-// runE2E generates protoFile through the real pipeline (protoc-gen-go for the
-// base messages plus this generator for the schema/scanner/query code),
-// assembles it into a throwaway Go module alongside driverSrc, and runs it
-// against a freshly started PostgreSQL.
-//
-// The SQL driver is required by *that* module, not by the repo under test, so
-// the generator keeps its two-dependency footprint.
+// runE2E generates protoFile through the real pipeline, assembles it into a
+// throwaway Go module with driverSrc, and runs it against a fresh PostgreSQL.
+// The SQL driver belongs to that module, not this repo.
 func runE2E(t *testing.T, protoFile, pkgName, driverSrc string) {
 	t.Helper()
 	if os.Getenv("SQLMAP_E2E") == "" {
@@ -409,9 +474,8 @@ func runE2E(t *testing.T, protoFile, pkgName, driverSrc string) {
 		t.Fatalf("no %s.sqlmap.go in generated output, got files: %v", base, fileNames(files))
 	}
 
-	// 3. A throwaway module holding both generated files and the driver, with
-	// a replace directive pointing back at this checkout so pkg/migration and
-	// pkg/query resolve to the code under test.
+	// 3. A throwaway module, replaced back at this checkout so pkg/migration
+	// and pkg/query resolve to the code under test.
 	modRoot := t.TempDir()
 	pkgDir := filepath.Join(modRoot, pkgName)
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
@@ -451,14 +515,17 @@ func runE2E(t *testing.T, protoFile, pkgName, driverSrc string) {
 	}
 }
 
-// TestE2E_MigrationCreateAndScan covers the schema writer and pkg/migration:
-// nullability and ON DELETE SET NULL against a live database.
+// TestE2E_MigrationCreateAndScan covers the schema writer and pkg/migration.
 func TestE2E_MigrationCreateAndScan(t *testing.T) {
 	runE2E(t, "relation.proto", "relationpb", relationDriverSrc)
 }
 
-// TestE2E_EagerLoading covers the query writer: FieldMask-driven column
-// selection and eager loading across both relation directions.
+// TestE2E_EagerLoading covers the query writer against a live database.
 func TestE2E_EagerLoading(t *testing.T) {
 	runE2E(t, "eager.proto", "eagerpb", eagerDriverSrc)
+}
+
+// TestE2E_SubtypeConstraints covers joined-table subtypes end to end.
+func TestE2E_SubtypeConstraints(t *testing.T) {
+	runE2E(t, "subtype.proto", "subtypepb", subtypeDriverSrc)
 }

@@ -1,11 +1,6 @@
-// Package query is the writer that emits FieldMask-aware row loading with
-// eager loading of related rows.
-//
-// Related rows are fetched with one batched `IN (...)` query per relation and
-// stitched together in Go, rather than joined -- a join would multiply the
-// parent row out once per child and force the scanner to de-duplicate it. The
-// FieldMask drives both halves: which columns land in the SELECT, and which
-// relations are loaded at all, so an unmasked relation costs no query.
+// Package query emits FieldMask-aware row loading. Related rows are fetched
+// with one batched `IN (...)` per relation and stitched in Go rather than
+// joined, which would multiply each parent row out once per child.
 package query
 
 import (
@@ -28,8 +23,7 @@ const templateStr = `
 {{- $q := .QueryPkg }}
 {{- $msg := .Name }}
 // {{ $msg }}QueryColumns returns the columns to select for mask. Primary keys
-// are always included: they are what relations are stitched on, so leaving
-// them out of the mask must not break eager loading.
+// are always included, since relations are stitched on them.
 func {{ $msg }}QueryColumns(m *{{ $q }}.Mask, extra ...string) []string {
 	cols := make([]string, 0, {{ len .Columns }}+len(extra))
 	{{- range .Columns }}
@@ -50,9 +44,8 @@ func {{ $msg }}QueryColumns(m *{{ $q }}.Mask, extra ...string) []string {
 }
 
 // Load{{ $msg }}Rows selects {{ .TableName }} rows matching conds and eagerly
-// loads every relation the mask selects. extra names columns that must be in
-// the SELECT regardless of the mask, which is how a parent load makes sure the
-// join key comes back on its children.
+// loads every relation the mask selects. extra forces columns into the SELECT
+// regardless of the mask, which is how a parent gets the join key back.
 func Load{{ $msg }}Rows(ctx {{ .CtxPkg }}.Context, c {{ $q }}.Conn, m *{{ $q }}.Mask, conds []{{ $q }}.Cond, extra ...string) ([]*{{ $msg }}Result, error) {
 	cols := {{ $msg }}QueryColumns(m, extra...)
 	sqlRows, err := c.Select(ctx, "{{ .TableName }}", cols, conds)
@@ -101,10 +94,8 @@ func Load{{ $msg }}Rows(ctx {{ .CtxPkg }}.Context, c {{ $q }}.Conn, m *{{ $q }}.
 	return rows, nil
 }
 
-// Load{{ $msg }} selects {{ .TableName }} rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and loads no relations:
-// eager loading is always opt-in, so the mask alone decides how deep a load
-// goes.
+// Load{{ $msg }} selects {{ .TableName }} rows restricted to the fields mask
+// names. A nil or empty mask selects every column and loads no relations.
 func Load{{ $msg }}(ctx {{ .CtxPkg }}.Context, c {{ $q }}.Conn, mask *{{ .FMPkg }}.FieldMask, conds ...{{ $q }}.Cond) ([]*{{ $msg }}, error) {
 	rows, err := Load{{ $msg }}Rows(ctx, c, {{ $q }}.FromFieldMask(mask), conds)
 	if err != nil {
@@ -130,15 +121,12 @@ type Relation struct {
 	IsList    bool
 	// TargetName is the embedded message field on the related Result struct.
 	TargetName string
-	// LoaderFunc is Load<Target>Rows, import-qualified when the target lives
-	// in another Go package.
+	// LoaderFunc is Load<Target>Rows, qualified if the target is in another package.
 	LoaderFunc string
-	// RemoteSQLCol is the column on the target table used in the IN clause.
+	// RemoteSQLCol is the target column used in the IN clause.
 	RemoteSQLCol string
-	// OwnerKeyExpr reads the join key off a row of *this* table; for a
-	// belongs-to that is the raw foreign-key value the scanner stashed.
-	OwnerKeyExpr string
-	// RelatedKeyExpr reads the same key off a related row.
+	// OwnerKeyExpr and RelatedKeyExpr read the join key off each side.
+	OwnerKeyExpr   string
 	RelatedKeyExpr string
 }
 
@@ -204,12 +192,8 @@ func (s *QueryWriter) table(table *types.Table) error {
 	return tpl.Execute(s.o, tbl)
 }
 
-// relation resolves one relation into the expressions the template needs.
-//
-// The two directions differ only in where the join key lives. For a has-many
-// the owner supplies its primary key and the related rows carry the foreign
-// key; for a belongs-to the owner carries the foreign key and the related rows
-// are matched on the column it points at.
+// relation resolves one relation into the expressions the template needs. The
+// directions differ only in which side holds the join key.
 func (s *QueryWriter) relation(table *types.Table, rel *types.Relation) (*Relation, error) {
 	target, err := rel.GetTarget(s.repo)
 	if err != nil {
@@ -249,10 +233,8 @@ func (s *QueryWriter) relation(table *types.Table, rel *types.Relation) (*Relati
 	}, nil
 }
 
-// keyExpr renders the expression reading a join key off a Result value. A
-// message-kind column has no usable Go getter -- the message field is what the
-// relation will eventually be filled with -- so the raw value the scanner
-// stashed in fk_<column>_id is used instead.
+// keyExpr reads a join key off a Result. A message-kind column has no usable
+// getter, so the raw value the scanner stashed in fk_<column>_id is used.
 func keyExpr(recv string, col *types.Column) string {
 	if col.IsMessage() {
 		return fmt.Sprintf("%s.fk_%s_id", recv, col.GetFieldname())
@@ -260,8 +242,7 @@ func keyExpr(recv string, col *types.Column) string {
 	return fmt.Sprintf("%s.Get%s()", recv, col.GetName())
 }
 
-// pkgAlias resolves the local alias protogen assigned to an import, by asking
-// for a known identifier from it and trimming that identifier back off.
+// pkgAlias resolves the local alias protogen assigned to an import.
 func (s *QueryWriter) pkgAlias(goName string, path protogen.GoImportPath, suffix string) string {
 	return strings.TrimSuffix(s.o.QualifiedGoIdent(protogen.GoIdent{
 		GoName:       goName,

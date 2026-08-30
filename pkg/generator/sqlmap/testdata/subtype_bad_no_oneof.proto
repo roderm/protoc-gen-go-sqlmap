@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package testdata;
+
+import "sqlmap/v1/sqlmap.proto";
+
+option go_package = "testdata/badpb";
+
+// Identity declares no subtype hierarchy, so there is no discriminator for
+// Person's composite key to reference.
+message Identity {
+  option (sqlmap.v1.table) = { name: "identity" };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+}
+
+message Person {
+  option (sqlmap.v1.table) = {
+    name: "person"
+    subtype_of: { entity: "Identity" }
+  };
+  string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];
+}
