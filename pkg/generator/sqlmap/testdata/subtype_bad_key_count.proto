@@ -6,9 +6,7 @@ import "sqlmap/v1/sqlmap.proto";
 
 option go_package = "testdata/badpb";
 
-// Person links on two columns while Identity's primary key is one, so the
-// composite foreign key could not be built. Caught at generation time rather
-// than emitted as DDL the database would reject.
+// Person links on two columns; Identity's primary key is one.
 message Identity {
   option (sqlmap.v1.table) = { name: "identity" };
   string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];

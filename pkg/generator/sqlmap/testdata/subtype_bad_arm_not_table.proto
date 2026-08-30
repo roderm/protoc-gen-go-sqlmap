@@ -6,8 +6,7 @@ import "sqlmap/v1/sqlmap.proto";
 
 option go_package = "testdata/badpb";
 
-// Organisation is a plain message with no table option, so it cannot hold the
-// discriminator column or the composite key the hierarchy needs.
+// Organisation has no table option, so it cannot hold the discriminator.
 message Identity {
   option (sqlmap.v1.table) = { name: "identity" };
   string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];

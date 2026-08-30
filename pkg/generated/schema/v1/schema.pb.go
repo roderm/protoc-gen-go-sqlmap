@@ -125,8 +125,7 @@ type SchemaColumn struct {
 	Type     map[string]string      `protobuf:"bytes,2,rep,name=type,proto3" json:"type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Pk       *PK                    `protobuf:"varint,3,opt,name=pk,proto3,enum=schema.v1.PK,oneof" json:"pk,omitempty"`
 	Nullable *bool                  `protobuf:"varint,4,opt,name=nullable,proto3,oneof" json:"nullable,omitempty"`
-	// Raw SQL default expression, e.g. "'person'". Emitted verbatim, so string
-	// literals have to carry their own quotes.
+	// Raw SQL default, e.g. "'person'". Emitted verbatim, quotes included.
 	DefaultExpr   *string `protobuf:"bytes,5,opt,name=default_expr,json=defaultExpr,proto3,oneof" json:"default_expr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -197,13 +196,9 @@ func (x *SchemaColumn) GetDefaultExpr() string {
 	return ""
 }
 
-// SchemaCheck is a table-level CHECK constraint.
-//
-// The expression is raw SQL and is stored per dialect, like a column's type,
-// because identifier quoting is not portable: PostgreSQL and SQLite quote with
-// double quotes, MySQL with backticks. A double-quoted identifier is not an
-// error on MySQL -- it is a string literal, so the constraint silently becomes
-// a comparison between two constants and rejects every row.
+// SchemaCheck is a table-level CHECK. The expression is per dialect because
+// identifier quoting is not portable, and MySQL reads a double-quoted
+// identifier as a string literal rather than rejecting it.
 type SchemaCheck struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
@@ -256,8 +251,6 @@ func (x *SchemaCheck) GetExpr() map[string]string {
 	return nil
 }
 
-// SchemaIndex is an index over one or more of the table's columns. Its unique
-// variant also serves as the target a composite foreign key needs.
 type SchemaIndex struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`

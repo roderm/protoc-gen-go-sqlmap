@@ -27,9 +27,8 @@ type Table struct {
 	state       protoimpl.MessageState  `protogen:"open.v1"`
 	Name        *string                 `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
 	ForeignKeys []*ForeignKeyDefinition `protobuf:"bytes,2,rep,name=foreign_keys,json=foreignKeys" json:"foreign_keys,omitempty"`
-	// Marks this table as one arm of a supertype's oneof: its rows are the
-	// detail rows of a shared supertype row. Implies the foreign key back to
-	// the supertype, so the key columns must not also declare one themselves.
+	// Marks this table as one arm of a supertype's oneof. Implies the foreign
+	// key back, so the key columns must not declare one themselves.
 	SubtypeOf     *SubtypeOf `protobuf:"bytes,3,opt,name=subtype_of,json=subtypeOf" json:"subtype_of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -277,24 +276,13 @@ func (x *ForeignKey) GetFieldnames() []string {
 	return nil
 }
 
-// Subtypes marks a oneof of message fields as a joined-table subtype
-// hierarchy rooted at this message: every row of this table is detailed by a
-// row in exactly one of the tables the oneof names.
-//
-// The generator adds the discriminator column to this table with a CHECK
-// restricting it to the declared subtype values, plus a unique index over the
-// primary key and the discriminator, which is what each subtype's composite
-// foreign key references.
-//
-// This enforces *at most one* subtype row. At-least-one is not expressible as
-// a declarative constraint -- the supertype row must exist before a subtype
-// row can reference it -- and is left to the application.
+// Subtypes marks a oneof as a joined-table subtype hierarchy. See
+// docs/design/DESIGN-SUBTYPE-TABLES.md.
 type Subtypes struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Column added to this table recording which subtype each row is.
 	Discriminator *string `protobuf:"bytes,1,req,name=discriminator" json:"discriminator,omitempty"`
-	// SQL type of the discriminator column per dialect. Defaults to
-	// VARCHAR(32) everywhere.
+	// Type of the discriminator column per dialect. Defaults to VARCHAR(32).
 	Type          map[string]string `protobuf:"bytes,2,rep,name=type" json:"type,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -347,29 +335,13 @@ func (x *Subtypes) GetType() map[string]string {
 // SubtypeOf names the supertype a table details.
 type SubtypeOf struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The supertype message. Its oneof must carry the `subtypes` option.
+	// Supertype message; its oneof must carry the `subtypes` option.
 	Entity *string `protobuf:"bytes,1,req,name=entity" json:"entity,omitempty"`
-	// Value stored in the supertype's discriminator for this subtype. Defaults
-	// to the name of the oneof field pointing at this message.
+	// Discriminator value for this subtype. Defaults to the oneof field's name.
 	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
-	// Columns on THIS table carrying the supertype's key. Defaults to this
-	// table's primary key.
-	//
-	// Note the asymmetry with ForeignKeyDefinition, which names columns on both
-	// sides: here only the referencing side is configurable, and the referenced
-	// side is always the supertype's primary key.
-	//
-	// The referencing side genuinely varies -- a subtype may carry its own
-	// surrogate key and link through a separate column -- so it has to be
-	// nameable. The referenced side does not: a subtype row *is* the supertype
-	// row, so what it references is that row's identity, which is its primary
-	// key by definition. Allowing some other unique key would also mean
-	// emitting a matching `UNIQUE (those columns..., discriminator)` on the
-	// supertype for the composite foreign key to have a target, which is
-	// surface with no use case behind it yet.
-	//
-	// The column count must match the supertype's primary key, or generation
-	// fails.
+	// Columns on THIS table carrying the supertype's key, defaulting to its
+	// primary key. The referenced side is always the supertype's primary key,
+	// so the counts must match.
 	Fieldnames    []string     `protobuf:"bytes,3,rep,name=fieldnames" json:"fieldnames,omitempty"`
 	OnDelete      *v1.OnDelete `protobuf:"varint,4,opt,name=on_delete,json=onDelete,enum=schema.v1.OnDelete" json:"on_delete,omitempty"`
 	unknownFields protoimpl.UnknownFields

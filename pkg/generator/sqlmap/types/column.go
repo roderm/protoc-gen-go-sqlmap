@@ -51,10 +51,8 @@ func (c *Column) IsPrimaryKey() bool {
 	return c.Def.GetPk() != schemav1.PK_PK_UNSPECIFIED
 }
 
-// GetForeignKeyEntity returns the message name the column's foreign key points
-// at, defaulting to the field's own message type when `entity` is not spelled
-// out -- which is the common case, since a message-kind field already names
-// what it references.
+// GetForeignKeyEntity defaults to the field's own message type, since a
+// message-kind field already names what it references.
 func (c *Column) GetForeignKeyEntity() string {
 	if c.Def.ForeignKey.GetEntity() != "" {
 		return c.Def.ForeignKey.GetEntity()
@@ -69,20 +67,16 @@ func (c *Column) GetForeignKeyEntity() string {
 // column rather than an embedded JSON blob.
 const timestampFullName = "google.protobuf.Timestamp"
 
-// IsTimestamp reports whether the column holds a google.protobuf.Timestamp.
-// It is a message field, but unlike other message fields it is neither a
-// foreign key nor a JSON blob: it maps to the dialect's timestamp type, and
-// the scanner reads it through a sql.NullTime because a driver cannot scan
-// into a **timestamppb.Timestamp.
+// IsTimestamp reports whether the column holds a google.protobuf.Timestamp,
+// which maps to a timestamp column rather than a foreign key or JSON blob.
 func (c *Column) IsTimestamp() bool {
 	return c.Field.Desc.Kind() == protoreflect.MessageKind &&
 		c.Field.Message != nil &&
 		c.Field.Message.Desc.FullName() == timestampFullName
 }
 
-// IsMessage reports whether the column's value is a reference stored as a
-// message field, which the scanner keeps as a raw fk_<column>_id value rather
-// than scanning into the message itself.
+// IsMessage reports whether the value is a reference the scanner keeps as a
+// raw fk_<column>_id rather than scanning into the message.
 func (c *Column) IsMessage() bool {
 	return c.Field.Desc.Kind() == protoreflect.MessageKind && c.Def.ForeignKey != nil
 }

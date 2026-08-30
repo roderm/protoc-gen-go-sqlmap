@@ -5,18 +5,14 @@ import (
 	"testing"
 )
 
-// A misconfigured subtype hierarchy has to fail at generation time with a
-// message naming what is wrong. The alternative is worse than a bad error:
-// the generator would emit a schema whose CHECK and composite foreign key
-// disagree, so the mistake would surface as every insert failing against a
-// live database instead.
+// A misconfigured hierarchy must fail at generation time naming what is wrong.
+// Otherwise the CHECK and composite foreign key disagree, and the mistake only
+// surfaces as every insert failing against a live database.
 func TestGenerate_SubtypeMisconfigurations(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		proto string
-		// want are fragments the error must mention, so it points at the
-		// offending declaration rather than just failing.
-		want []string
+		want  []string // fragments the error must name
 	}{
 		{
 			name:  "supertype is not a table",
@@ -39,9 +35,7 @@ func TestGenerate_SubtypeMisconfigurations(t *testing.T) {
 			want:  []string{"identity", "Organisation", "not a table"},
 		},
 		{
-			// subtype_of names the referencing columns but never the
-			// referenced ones -- those are always the supertype's primary key
-			// -- so the counts have to agree for the composite key to exist.
+			// The referenced side is always the supertype's PK, so counts must agree.
 			name:  "link columns outnumber the supertype's primary key",
 			proto: "subtype_bad_key_count.proto",
 			want:  []string{"person", "identity", "2 column(s)", "1 primary key"},

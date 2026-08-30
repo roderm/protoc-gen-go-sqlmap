@@ -1,10 +1,6 @@
 package schema
 
-// This writer uses text/template, not html/template: the output is Go source,
-// and HTML escaping mangles any substituted value containing a quote -- a
-// CHECK expression such as kind IN ('person') becomes &#39;person&#39;. Only
-// substituted values are escaped, not template literals, which is why the bug
-// stayed hidden until a value first contained a quote.
+// text/template, not html/template: HTML escaping mangles quotes in Go source.
 import (
 	"fmt"
 	"strconv"
@@ -18,16 +14,13 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-// dialects is the set of SQL dialects every generated column carries a
-// SchemaType entry for, so one generated file serves any of them at runtime.
+// dialects every generated column carries a type for, so one file serves all.
 var dialects = []string{"mysql", "postgres", "sqlite3"}
 
-// schemaV1ImportPath is the generated Go package holding SchemaTable/SchemaColumn/
-// SchemaForeignKey and the PK/OnDelete enums that this writer emits into.
+// schemaV1ImportPath holds the SchemaTable/SchemaColumn types this writer emits.
 const schemaV1ImportPath = protogen.GoImportPath("github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1")
 
-// protoImportPath is google.golang.org/protobuf/proto, used for proto.String()
-// to populate the schema.v1 messages' proto2 *string fields.
+// protoImportPath supplies proto.String() for the schema.v1 *string fields.
 const protoImportPath = protogen.GoImportPath("google.golang.org/protobuf/proto")
 
 const templateStr = `
@@ -111,27 +104,24 @@ func init() {
 `
 
 type Column struct {
-	VarName  string // Go var holding this column, e.g. "SimpleColumnDef_Id"
-	SQLName  string // actual SQL column name, e.g. "simple_id"
-	Type     map[string]string
-	Pk       string
-	Nullable bool
-	// DefaultExpr is a raw SQL default, emitted verbatim; empty means none.
-	DefaultExpr string
+	VarName     string // Go var holding this column, e.g. "SimpleColumnDef_Id"
+	SQLName     string // actual SQL column name, e.g. "simple_id"
+	Type        map[string]string
+	Pk          string
+	Nullable    bool
+	DefaultExpr string // raw SQL, emitted verbatim; empty means none
 }
 
 type Check struct {
 	Name string
-	// Expr is the SQL expression per dialect: identifier quoting differs, and
-	// getting it wrong on MySQL yields a silently always-false constraint
-	// rather than an error.
+	// Expr is per dialect: identifier quoting differs, and getting it wrong on
+	// MySQL yields a silently always-false constraint.
 	Expr map[string]string
 }
 
 type Index struct {
-	Name string
-	// Columns are the Go var names of the columns it covers.
-	Columns []string
+	Name    string
+	Columns []string // Go var names
 	Unique  bool
 }
 
@@ -153,8 +143,8 @@ type ForeignKey struct {
 	OnDelete          string
 }
 
-// pkGoIdent returns the generated Go constant identifier (not PK's proto
-// enum-value name, which protoc-gen-go doesn't prefix the same way) for pk.
+// pkGoIdent returns the generated Go constant, which protoc-gen-go prefixes
+// differently from the proto enum-value name.
 func pkGoIdent(pk schemav1.PK) string {
 	switch pk {
 	case schemav1.PK_PK_AUTO:
@@ -178,10 +168,8 @@ func onDeleteGoIdent(od schemav1.OnDelete) string {
 	}
 }
 
-// q renders a Go string literal. SQL fragments carry quotes of their own --
-// double quotes for PostgreSQL identifiers, backticks for MySQL ones -- and a
-// backtick cannot appear inside a Go raw string at all, so these have to be
-// escaped properly rather than wrapped.
+// q renders a Go string literal. SQL fragments carry quotes of their own, and
+// a backtick cannot appear in a Go raw string at all.
 var tplFuncs = template.FuncMap{"q": strconv.Quote}
 
 var tpl = template.Must(template.New("schema").Funcs(tplFuncs).Parse(templateStr))
@@ -284,25 +272,14 @@ func columnVar(table *types.Table, goName string) string {
 	return fmt.Sprintf("%sColumnDef_%s", table.GetMessageName(), goName)
 }
 
-// discriminatorVar is the Go var holding a table's synthesized discriminator
-// column. It is deliberately not spelled like columnVar's output, since the
-// discriminator has no proto field and could otherwise collide with one.
+// discriminatorVar names the synthesized discriminator column. Deliberately
+// unlike columnVar, which could collide with a real field.
 func discriminatorVar(table *types.Table) string {
 	return fmt.Sprintf("%sDiscriminatorColumn", table.GetMessageName())
 }
 
-// subtypes emits the joined-table subtype constraints for a table, on either
-// side of the relationship.
-//
-// A supertype gets the discriminator column, a CHECK restricting it to the
-// declared subtype values, and a unique index over its key plus the
-// discriminator -- which is what each subtype's composite foreign key needs as
-// a target.
-//
-// A subtype gets the same column pinned by CHECK and DEFAULT to its own single
-// value, plus that composite foreign key. Since a supertype row holds exactly
-// one discriminator value, only one subtype table can ever hold a row for it,
-// which is what makes "at most one subtype" a database-level guarantee.
+// subtypes emits the joined-table subtype constraints, on either side. See
+// docs/design/DESIGN-SUBTYPE-TABLES.md.
 func (s *SchemaWriter) subtypes(table *types.Table, tbl *Table) error {
 	if err := s.superTable(table, tbl); err != nil {
 		return err
@@ -334,9 +311,8 @@ func (s *SchemaWriter) superTable(table *types.Table, tbl *Table) error {
 		}),
 	})
 
-	// A foreign key can only reference a uniquely-constrained column set, so
-	// the composite target needs this even though the key alone is already
-	// unique.
+	// A foreign key needs a uniquely-constrained target, even though the key
+	// alone is already unique.
 	idx := &Index{
 		Name:   fmt.Sprintf("%s_%s_key", table.GetTableName(), name),
 		Unique: true,
@@ -393,9 +369,8 @@ func (s *SchemaWriter) subTable(table *types.Table, tbl *Table) error {
 	return nil
 }
 
-// discriminatorColumn builds the synthesized discriminator. A non-empty value
-// pins it with a DEFAULT, which is what lets a subtype row be inserted without
-// naming the column.
+// discriminatorColumn builds the synthesized discriminator; a non-empty value
+// pins it with a DEFAULT so subtype inserts need not name it.
 func (s *SchemaWriter) discriminatorColumn(table *types.Table, h *types.Hierarchy, value string) *Column {
 	col := &Column{
 		VarName:  discriminatorVar(table),
@@ -427,14 +402,9 @@ func perDialect(build func(dialect string) string) map[string]string {
 	return out
 }
 
-// quoteIdent quotes an identifier for use inside a CHECK expression.
-//
-// MySQL needs backticks. Double quotes are not merely a different spelling
-// there: without ANSI_QUOTES they denote a *string literal*, so
-// CHECK ("kind" = 'person') is accepted at DDL time and stored as
-// CHECK ('kind' = 'person') -- constant false, rejecting every row. A silent
-// trap rather than an error, which is why quoting is resolved per dialect
-// rather than left to the database's mode.
+// quoteIdent quotes an identifier for a CHECK expression. MySQL needs
+// backticks: without ANSI_QUOTES it reads "kind" as a string literal, so the
+// constraint is accepted and then rejects every row.
 func quoteIdent(dialect, s string) string {
 	if dialect == "mysql" {
 		return "`" + strings.ReplaceAll(s, "`", "``") + "`"

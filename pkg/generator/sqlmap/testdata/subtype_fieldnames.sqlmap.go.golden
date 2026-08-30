@@ -219,8 +219,7 @@ func GetPersonColumns() []string {
 }
 
 // IdentityQueryColumns returns the columns to select for mask. Primary keys
-// are always included: they are what relations are stitched on, so leaving
-// them out of the mask must not break eager loading.
+// are always included, since relations are stitched on them.
 func IdentityQueryColumns(m *query.Mask, extra ...string) []string {
 	cols := make([]string, 0, 1+len(extra))
 	cols = append(cols, "id")
@@ -233,9 +232,8 @@ func IdentityQueryColumns(m *query.Mask, extra ...string) []string {
 }
 
 // LoadIdentityRows selects identity rows matching conds and eagerly
-// loads every relation the mask selects. extra names columns that must be in
-// the SELECT regardless of the mask, which is how a parent load makes sure the
-// join key comes back on its children.
+// loads every relation the mask selects. extra forces columns into the SELECT
+// regardless of the mask, which is how a parent gets the join key back.
 func LoadIdentityRows(ctx context.Context, c query.Conn, m *query.Mask, conds []query.Cond, extra ...string) ([]*IdentityResult, error) {
 	cols := IdentityQueryColumns(m, extra...)
 	sqlRows, err := c.Select(ctx, "identity", cols, conds)
@@ -262,10 +260,8 @@ func LoadIdentityRows(ctx context.Context, c query.Conn, m *query.Mask, conds []
 	return rows, nil
 }
 
-// LoadIdentity selects identity rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and loads no relations:
-// eager loading is always opt-in, so the mask alone decides how deep a load
-// goes.
+// LoadIdentity selects identity rows restricted to the fields mask
+// names. A nil or empty mask selects every column and loads no relations.
 func LoadIdentity(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Identity, error) {
 	rows, err := LoadIdentityRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {
@@ -279,8 +275,7 @@ func LoadIdentity(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask
 }
 
 // PersonQueryColumns returns the columns to select for mask. Primary keys
-// are always included: they are what relations are stitched on, so leaving
-// them out of the mask must not break eager loading.
+// are always included, since relations are stitched on them.
 func PersonQueryColumns(m *query.Mask, extra ...string) []string {
 	cols := make([]string, 0, 2+len(extra))
 	cols = append(cols, "person_id")
@@ -296,9 +291,8 @@ func PersonQueryColumns(m *query.Mask, extra ...string) []string {
 }
 
 // LoadPersonRows selects person rows matching conds and eagerly
-// loads every relation the mask selects. extra names columns that must be in
-// the SELECT regardless of the mask, which is how a parent load makes sure the
-// join key comes back on its children.
+// loads every relation the mask selects. extra forces columns into the SELECT
+// regardless of the mask, which is how a parent gets the join key back.
 func LoadPersonRows(ctx context.Context, c query.Conn, m *query.Mask, conds []query.Cond, extra ...string) ([]*PersonResult, error) {
 	cols := PersonQueryColumns(m, extra...)
 	sqlRows, err := c.Select(ctx, "person", cols, conds)
@@ -325,10 +319,8 @@ func LoadPersonRows(ctx context.Context, c query.Conn, m *query.Mask, conds []qu
 	return rows, nil
 }
 
-// LoadPerson selects person rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and loads no relations:
-// eager loading is always opt-in, so the mask alone decides how deep a load
-// goes.
+// LoadPerson selects person rows restricted to the fields mask
+// names. A nil or empty mask selects every column and loads no relations.
 func LoadPerson(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Person, error) {
 	rows, err := LoadPersonRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {

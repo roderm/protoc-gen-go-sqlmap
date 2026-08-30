@@ -8,7 +8,6 @@ option go_package = "testdata/badpb";
 
 // subtype_of names a column that does not exist on this table.
 
-
 message Identity {
   option (sqlmap.v1.table) = { name: "identity" };
   string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];

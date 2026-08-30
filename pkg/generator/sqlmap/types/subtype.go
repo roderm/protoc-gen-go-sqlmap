@@ -9,38 +9,28 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// defaultDiscriminatorType is used when the `subtypes` option names no type.
-// 32 characters comfortably holds a proto field name, which is what the
-// discriminator values default to.
+// defaultDiscriminatorType holds a proto field name comfortably.
 const defaultDiscriminatorType = "VARCHAR(32)"
 
-// Subtype is one arm of a supertype's oneof: a table whose rows detail a
-// shared supertype row.
+// Subtype is one arm of a supertype's oneof.
 type Subtype struct {
-	// Field is the oneof member on the supertype pointing at this subtype.
-	Field *protogen.Field
-	// Value is what the supertype's discriminator column holds for it.
-	Value string
-	// Table is the subtype's own table.
+	Field *protogen.Field // oneof member on the supertype
+	Value string          // what the discriminator holds for it
 	Table *Table
 }
 
 // Hierarchy is a supertype table together with the subtypes its oneof names.
 type Hierarchy struct {
-	// Super is the table carrying the discriminator column.
-	Super *Table
-	// Oneof is the oneof the `subtypes` option was declared on.
-	Oneof *protogen.Oneof
-	Def   *sqlmapv1.Subtypes
-	// Subtypes are the arms, in declaration order.
-	Subtypes []*Subtype
+	Super    *Table // carries the discriminator column
+	Oneof    *protogen.Oneof
+	Def      *sqlmapv1.Subtypes
+	Subtypes []*Subtype // arms, in declaration order
 }
 
 // GetDiscriminatorName returns the discriminator column's SQL name.
 func (h *Hierarchy) GetDiscriminatorName() string { return h.Def.GetDiscriminator() }
 
-// GetDiscriminatorType returns the discriminator column's SQL type for a
-// dialect, defaulting to VARCHAR(32).
+// GetDiscriminatorType defaults to VARCHAR(32).
 func (h *Hierarchy) GetDiscriminatorType(dialect string) string {
 	if t, ok := h.Def.GetType()[dialect]; ok {
 		return t
@@ -49,10 +39,7 @@ func (h *Hierarchy) GetDiscriminatorType(dialect string) string {
 }
 
 // GetHierarchy returns the subtype hierarchy rooted at this table, or nil when
-// none of its oneofs carries the `subtypes` option.
-//
-// Resolving the arms needs the whole repo, since each one is a separate table
-// that may live in another file.
+// no oneof carries the `subtypes` option.
 func (t *Table) GetHierarchy(repo TableRepo) (*Hierarchy, error) {
 	for _, oneof := range t.Msg.Oneofs {
 		ext := proto.GetExtension(oneof.Desc.Options(), sqlmapv1.E_Subtypes).(*sqlmapv1.Subtypes)
@@ -85,8 +72,7 @@ func (t *Table) GetHierarchy(repo TableRepo) (*Hierarchy, error) {
 	return nil, nil
 }
 
-// subtypeValue is what the discriminator holds for a subtype: the value it
-// declares, or the oneof field's name.
+// subtypeValue is the declared value, or the oneof field's name.
 func subtypeValue(sub *Table, f *protogen.Field) string {
 	if v := sub.Def.GetSubtypeOf().GetValue(); v != "" {
 		return v
@@ -94,9 +80,8 @@ func subtypeValue(sub *Table, f *protogen.Field) string {
 	return string(f.Desc.Name())
 }
 
-// GetSuper resolves the supertype this table details, along with the arm of
-// the supertype's oneof that points back at it. It returns nil when the table
-// declares no `subtype_of`.
+// GetSuper resolves the supertype this table details and the oneof arm
+// pointing back at it, or nil when it declares no `subtype_of`.
 func (t *Table) GetSuper(repo TableRepo) (*Hierarchy, *Subtype, error) {
 	def := t.Def.GetSubtypeOf()
 	if def == nil {
@@ -123,8 +108,7 @@ func (t *Table) GetSuper(repo TableRepo) (*Hierarchy, *Subtype, error) {
 		t.GetTableName(), super.GetMessageName(), super.GetMessageName())
 }
 
-// GetSubtypeKeyColumns returns the columns on this table that carry the
-// supertype's key, defaulting to the primary key.
+// GetSubtypeKeyColumns returns this table's link columns, defaulting to its PK.
 func (t *Table) GetSubtypeKeyColumns() ([]*Column, error) {
 	names := t.Def.GetSubtypeOf().GetFieldnames()
 	if len(names) == 0 {

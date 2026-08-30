@@ -347,8 +347,7 @@ func GetBookColumns() []string {
 }
 
 // PublisherQueryColumns returns the columns to select for mask. Primary keys
-// are always included: they are what relations are stitched on, so leaving
-// them out of the mask must not break eager loading.
+// are always included, since relations are stitched on them.
 func PublisherQueryColumns(m *query.Mask, extra ...string) []string {
 	cols := make([]string, 0, 2+len(extra))
 	cols = append(cols, "publisher_id")
@@ -364,9 +363,8 @@ func PublisherQueryColumns(m *query.Mask, extra ...string) []string {
 }
 
 // LoadPublisherRows selects tbl_publisher rows matching conds and eagerly
-// loads every relation the mask selects. extra names columns that must be in
-// the SELECT regardless of the mask, which is how a parent load makes sure the
-// join key comes back on its children.
+// loads every relation the mask selects. extra forces columns into the SELECT
+// regardless of the mask, which is how a parent gets the join key back.
 func LoadPublisherRows(ctx context.Context, c query.Conn, m *query.Mask, conds []query.Cond, extra ...string) ([]*PublisherResult, error) {
 	cols := PublisherQueryColumns(m, extra...)
 	sqlRows, err := c.Select(ctx, "tbl_publisher", cols, conds)
@@ -393,10 +391,8 @@ func LoadPublisherRows(ctx context.Context, c query.Conn, m *query.Mask, conds [
 	return rows, nil
 }
 
-// LoadPublisher selects tbl_publisher rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and loads no relations:
-// eager loading is always opt-in, so the mask alone decides how deep a load
-// goes.
+// LoadPublisher selects tbl_publisher rows restricted to the fields mask
+// names. A nil or empty mask selects every column and loads no relations.
 func LoadPublisher(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Publisher, error) {
 	rows, err := LoadPublisherRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {
@@ -410,8 +406,7 @@ func LoadPublisher(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMas
 }
 
 // AuthorQueryColumns returns the columns to select for mask. Primary keys
-// are always included: they are what relations are stitched on, so leaving
-// them out of the mask must not break eager loading.
+// are always included, since relations are stitched on them.
 func AuthorQueryColumns(m *query.Mask, extra ...string) []string {
 	cols := make([]string, 0, 2+len(extra))
 	cols = append(cols, "author_id")
@@ -427,9 +422,8 @@ func AuthorQueryColumns(m *query.Mask, extra ...string) []string {
 }
 
 // LoadAuthorRows selects tbl_author rows matching conds and eagerly
-// loads every relation the mask selects. extra names columns that must be in
-// the SELECT regardless of the mask, which is how a parent load makes sure the
-// join key comes back on its children.
+// loads every relation the mask selects. extra forces columns into the SELECT
+// regardless of the mask, which is how a parent gets the join key back.
 func LoadAuthorRows(ctx context.Context, c query.Conn, m *query.Mask, conds []query.Cond, extra ...string) ([]*AuthorResult, error) {
 	cols := AuthorQueryColumns(m, extra...)
 	sqlRows, err := c.Select(ctx, "tbl_author", cols, conds)
@@ -478,10 +472,8 @@ func LoadAuthorRows(ctx context.Context, c query.Conn, m *query.Mask, conds []qu
 	return rows, nil
 }
 
-// LoadAuthor selects tbl_author rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and loads no relations:
-// eager loading is always opt-in, so the mask alone decides how deep a load
-// goes.
+// LoadAuthor selects tbl_author rows restricted to the fields mask
+// names. A nil or empty mask selects every column and loads no relations.
 func LoadAuthor(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Author, error) {
 	rows, err := LoadAuthorRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {
@@ -495,8 +487,7 @@ func LoadAuthor(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, 
 }
 
 // BookQueryColumns returns the columns to select for mask. Primary keys
-// are always included: they are what relations are stitched on, so leaving
-// them out of the mask must not break eager loading.
+// are always included, since relations are stitched on them.
 func BookQueryColumns(m *query.Mask, extra ...string) []string {
 	cols := make([]string, 0, 6+len(extra))
 	cols = append(cols, "book_id")
@@ -524,9 +515,8 @@ func BookQueryColumns(m *query.Mask, extra ...string) []string {
 }
 
 // LoadBookRows selects tbl_book rows matching conds and eagerly
-// loads every relation the mask selects. extra names columns that must be in
-// the SELECT regardless of the mask, which is how a parent load makes sure the
-// join key comes back on its children.
+// loads every relation the mask selects. extra forces columns into the SELECT
+// regardless of the mask, which is how a parent gets the join key back.
 func LoadBookRows(ctx context.Context, c query.Conn, m *query.Mask, conds []query.Cond, extra ...string) ([]*BookResult, error) {
 	cols := BookQueryColumns(m, extra...)
 	sqlRows, err := c.Select(ctx, "tbl_book", cols, conds)
@@ -575,10 +565,8 @@ func LoadBookRows(ctx context.Context, c query.Conn, m *query.Mask, conds []quer
 	return rows, nil
 }
 
-// LoadBook selects tbl_book rows, restricted to the fields named
-// by mask. A nil or empty mask selects every column and loads no relations:
-// eager loading is always opt-in, so the mask alone decides how deep a load
-// goes.
+// LoadBook selects tbl_book rows restricted to the fields mask
+// names. A nil or empty mask selects every column and loads no relations.
 func LoadBook(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, conds ...query.Cond) ([]*Book, error) {
 	rows, err := LoadBookRows(ctx, c, query.FromFieldMask(mask), conds)
 	if err != nil {

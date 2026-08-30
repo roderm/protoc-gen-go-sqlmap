@@ -16,8 +16,7 @@ message Identity {
   }
 }
 
-// Person has its own surrogate primary key, so the link to the supertype is a
-// separate column named explicitly by subtype_of.fieldnames.
+// Person has its own primary key, so subtype_of.fieldnames names the link.
 message Person {
   option (sqlmap.v1.table) = {
     name: "person"

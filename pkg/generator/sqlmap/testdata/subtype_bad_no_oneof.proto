@@ -6,9 +6,8 @@ import "sqlmap/v1/sqlmap.proto";
 
 option go_package = "testdata/badpb";
 
-// Identity is a real table, but nothing on it declares a subtype hierarchy --
-// there is no oneof carrying the `subtypes` option, so there is no
-// discriminator column for Person's composite key to reference.
+// Identity declares no subtype hierarchy, so there is no discriminator for
+// Person's composite key to reference.
 message Identity {
   option (sqlmap.v1.table) = { name: "identity" };
   string id = 1 [(sqlmap.v1.col) = { fieldname: "id", pk: PK_MAN }];

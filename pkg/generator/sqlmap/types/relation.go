@@ -8,19 +8,10 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-// Relation is a message-kind field carrying a foreign_key: a link from one
-// table to another that the query writer can eagerly load.
-//
-// The proto field's cardinality picks the direction, so one option syntax
-// covers both:
-//
-//	optional Publisher publisher = 4 [(col) = {fieldname: "publisher_id", foreign_key: {...}}];
-//	  belongs-to -- this row holds the key, the target row is the parent.
-//
-//	repeated Book books = 3 [(col) = {foreign_key: {entity: "Book", fieldnames: ["author_id"]}}];
-//	  has-many -- the target rows hold the key, pointing back at this row's PK.
-//
-// In both cases ForeignKey.Fieldnames names columns on the *target* table.
+// Relation is a message-kind field carrying a foreign_key. Its cardinality
+// picks the direction: singular is belongs-to (this row holds the key),
+// repeated is has-many (the target rows do). ForeignKey.Fieldnames always
+// names columns on the target table.
 type Relation struct {
 	Table *Table
 	Def   *sqlmapv1.Column
@@ -33,8 +24,7 @@ func (r *Relation) IsList() bool { return r.Field.Desc.IsList() }
 // GetName returns the Go field name holding the relation, e.g. "Books".
 func (r *Relation) GetName() string { return r.Field.GoName }
 
-// GetProtoName returns the proto field name, which is what a FieldMask path
-// refers to.
+// GetProtoName returns the proto field name, as used in a FieldMask path.
 func (r *Relation) GetProtoName() string { return string(r.Field.Desc.Name()) }
 
 // GetTarget resolves the table this relation points at.
@@ -50,8 +40,7 @@ func (r *Relation) GetTarget(repo TableRepo) (*Table, error) {
 	return tbl, nil
 }
 
-// GetTargetColumns returns the columns on the target table that carry the key.
-// It defaults to the target's primary key when the option lists no fieldnames.
+// GetTargetColumns returns the target's key columns, defaulting to its PK.
 func (r *Relation) GetTargetColumns(repo TableRepo) ([]*Column, error) {
 	target, err := r.GetTarget(repo)
 	if err != nil {
@@ -64,13 +53,9 @@ func (r *Relation) GetTargetColumns(repo TableRepo) ([]*Column, error) {
 	return cols, nil
 }
 
-// ResolveRefColumns resolves the columns a foreign key's `fieldnames` refer to
-// on the target table, defaulting to the target's primary key when empty.
-//
-// Names are matched against the SQL column name first and the Go field name
-// second, because both spellings appear in the wild: column-level foreign keys
-// were historically written with Go names (`fieldnames: ["Id"]`) while table
-// names read more naturally as SQL (`fieldnames: ["author_id"]`).
+// ResolveRefColumns resolves a foreign key's `fieldnames` against the target,
+// defaulting to its primary key. Names match the SQL column name first and the
+// Go field name second, since both spellings appear in the wild.
 func ResolveRefColumns(target *Table, names []string) ([]*Column, error) {
 	if len(names) == 0 {
 		pks := target.GetPKColumns()
@@ -93,9 +78,8 @@ func ResolveRefColumns(target *Table, names []string) ([]*Column, error) {
 	return cols, nil
 }
 
-// GetLocalColumns returns the columns on *this* table that the relation is
-// joined on. For a has-many that is this table's primary key, because the key
-// lives on the target rows; for a belongs-to it is the field's own column.
+// GetLocalColumns returns this table's join columns: the PK for a has-many,
+// the field's own column for a belongs-to.
 func (r *Relation) GetLocalColumns(repo TableRepo) ([]*Column, error) {
 	if r.IsList() {
 		pks := r.Table.GetPKColumns()

@@ -24,8 +24,7 @@ func generate(t *testing.T, protoFile string) map[string]string {
 	return generateWith(t, protoFile, "")
 }
 
-// buildRequest compiles protoFile (relative to testdata/) with protoc into a
-// CodeGeneratorRequest, with extra appended to the plugin parameter.
+// buildRequest compiles protoFile with protoc, appending extra to the param.
 func buildRequest(t *testing.T, protoFile, extra string) *pluginpb.CodeGeneratorRequest {
 	t.Helper()
 	if _, err := exec.LookPath("protoc"); err != nil {
@@ -75,9 +74,7 @@ func buildRequest(t *testing.T, protoFile, extra string) *pluginpb.CodeGenerator
 	}
 }
 
-// generateWith runs protoFile through the generator exactly like
-// cmd/protoc-gen-go-sqlmap does, with extra appended to the plugin parameter,
-// and returns the generated files keyed by name.
+// generateWith runs protoFile through the generator, keyed by file name.
 func generateWith(t *testing.T, protoFile, extra string) map[string]string {
 	t.Helper()
 	gen, err := New(protogen.Options{}, buildRequest(t, protoFile, extra))
@@ -99,10 +96,8 @@ func generateWith(t *testing.T, protoFile, extra string) map[string]string {
 	return out
 }
 
-// generateError runs protoFile through the generator and returns the message
-// it failed with. It fails the test if generation unexpectedly succeeded --
-// a misconfiguration that silently produces output is the bug these tests are
-// looking for.
+// generateError returns the message protoFile failed generation with, failing
+// the test if it succeeded -- silent success is the bug being looked for.
 func generateError(t *testing.T, protoFile string) string {
 	t.Helper()
 	gen, err := New(protogen.Options{}, buildRequest(t, protoFile, ""))
@@ -178,9 +173,8 @@ func TestGenerate_Eager(t *testing.T) {
 	compareGolden(t, "eager.sqlmap.go", got)
 }
 
-// A subtype does not have to link through its own primary key: it may carry a
-// surrogate key of its own and name the linking column with
-// subtype_of.fieldnames. The referenced side stays the supertype's primary key.
+// A subtype may carry its own surrogate key and name the linking column with
+// subtype_of.fieldnames; the referenced side stays the supertype's PK.
 func TestGenerate_SubtypeFieldnames(t *testing.T) {
 	files := generate(t, "subtype_fieldnames.proto")
 	got, ok := files["subtype_fieldnames.sqlmap.go"]

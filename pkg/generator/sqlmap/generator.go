@@ -14,11 +14,8 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
-// plugin is one generated artifact. Adding a feature means adding an entry
-// here; the core loop needs no changes.
-//
-// Order matters: writers append to the same file in this order, and the query
-// writer's output calls the Result type the scanner writer declares.
+// plugin is one generated artifact. Order matters: writers append to the same
+// file, and query's output calls the Result type scanner declares.
 type plugin struct {
 	Name string
 	New  func(writer.Printer, types.TableRepo) writer.Writer
@@ -65,9 +62,8 @@ func New(opts protogen.Options, request *pluginpb.CodeGeneratorRequest) (*SqlGen
 	return gen, nil
 }
 
-// parseEnabled reads the `plugins=` protoc parameter, a `+`-separated list of
-// plugin names (`+` rather than `,`, which protoc already uses to separate
-// parameters). Every plugin is enabled when the parameter is absent.
+// parseEnabled reads `plugins=`, a `+`-separated list (protoc already uses
+// `,`). All plugins are enabled when it is absent.
 func parseEnabled(param string) (map[string]bool, error) {
 	enabled := make(map[string]bool, len(plugins))
 	var spec string
@@ -109,11 +105,9 @@ func (p *SqlGenerator) Generate() (*pluginpb.CodeGeneratorResponse, error) {
 		}
 	}
 	for _, protoFile := range p.plugin.Files {
-		// Emit nothing for a file that declares no tables. Well-known types
-		// are in the request too, and generating a bare `package` stub for
-		// each one both litters the output and breaks the build: with
-		// paths=source_relative, descriptor.proto and timestamp.proto land in
-		// the same directory under different Go package names.
+		// Well-known types are in the request too, and a bare `package` stub
+		// for each breaks the build: with paths=source_relative,
+		// descriptor.proto and timestamp.proto share a directory.
 		if len(p.repo.ForFile(protoFile)) == 0 {
 			continue
 		}
