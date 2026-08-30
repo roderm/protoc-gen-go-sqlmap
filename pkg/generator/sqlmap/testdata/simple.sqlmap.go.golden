@@ -59,7 +59,10 @@ func (n *SimpleResult) Scan(cols []string, r interface{ Scan(dest ...any) error 
 			return fmt.Errorf("unknown column '%s'", col)
 		}
 	}
-	return r.Scan(values...)
+	if err := r.Scan(values...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (n *Simple) GetColValue(col string) any {

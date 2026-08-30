@@ -90,12 +90,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"e2etest/eagerpb"
 	"github.com/roderm/protoc-gen-go-sqlmap/pkg/migration"
 	"github.com/roderm/protoc-gen-go-sqlmap/pkg/query"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
+
+// UTC and whole seconds, so the comparison does not depend on the column's
+// fractional-second precision or on the session time zone.
+var published = time.Date(1968, 11, 1, 12, 0, 0, 0, time.UTC)
 
 func run(ctx context.Context, db *sql.DB) error {
 	m, err := migration.New(db, migration.DialectPostgres)
@@ -117,12 +122,17 @@ func run(ctx context.Context, db *sql.DB) error {
 	).Scan(&authorID); err != nil {
 		return err
 	}
-	for _, title := range []string{"Earthsea", "Lathe"} {
-		if _, err := db.ExecContext(ctx,
-			"INSERT INTO tbl_book (book_title, author_id, publisher_id) VALUES ($1, $2, $3)",
-			title, authorID, pubID); err != nil {
-			return err
-		}
+	// Earthsea carries a timestamp; Lathe leaves published_at NULL, so the
+	// scanner is exercised on both.
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO tbl_book (book_title, author_id, publisher_id, published_at) VALUES ($1, $2, $3, $4)",
+		"Earthsea", authorID, pubID, published); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO tbl_book (book_title, author_id, publisher_id) VALUES ($1, $2, $3)",
+		"Lathe", authorID, pubID); err != nil {
+		return err
 	}
 	// A second author with no books, to prove eager loading does not invent one.
 	if _, err := db.ExecContext(ctx, "INSERT INTO tbl_author (author_name) VALUES ($1)", "Nobody"); err != nil {
@@ -161,6 +171,29 @@ func run(ctx context.Context, db *sql.DB) error {
 		if b.GetPublisher().GetName() != "Gollancz" {
 			return fmt.Errorf("nested publisher name = %q, want %q", b.GetPublisher().GetName(), "Gollancz")
 		}
+	}
+
+	// A google.protobuf.Timestamp column must round-trip through the driver's
+	// time.Time, and a NULL one must stay nil rather than become the zero
+	// instant.
+	books, err := eagerpb.LoadBook(ctx, conn,
+		&fieldmaskpb.FieldMask{Paths: []string{"title", "published_at"}})
+	if err != nil {
+		return fmt.Errorf("LoadBook: %w", err)
+	}
+	seen := map[string]*eagerpb.Book{}
+	for _, b := range books {
+		seen[b.GetTitle()] = b
+	}
+	got := seen["Earthsea"].GetPublishedAt()
+	if got == nil {
+		return fmt.Errorf("published_at came back nil for Earthsea")
+	}
+	if !got.AsTime().Equal(published) {
+		return fmt.Errorf("published_at = %s, want %s", got.AsTime(), published)
+	}
+	if ts := seen["Lathe"].PublishedAt; ts != nil {
+		return fmt.Errorf("a NULL published_at should stay nil, got %s", ts.AsTime())
 	}
 
 	// A mask that does not name the relation must not load it, and must not

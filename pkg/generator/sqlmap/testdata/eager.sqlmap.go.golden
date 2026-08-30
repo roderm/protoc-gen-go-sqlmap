@@ -2,11 +2,13 @@ package eagerpb
 
 import (
 	context "context"
+	sql "database/sql"
 	fmt "fmt"
 	v1 "github.com/roderm/protoc-gen-go-sqlmap/pkg/generated/schema/v1"
 	query "github.com/roderm/protoc-gen-go-sqlmap/pkg/query"
 	proto "google.golang.org/protobuf/proto"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -116,6 +118,16 @@ var (
 		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
 		Nullable: proto.Bool(true),
 	}
+	BookColumnDef_PublishedAt = &v1.SchemaColumn{
+		Name: proto.String("published_at"),
+		Type: map[string]string{
+			"mysql":    "DATETIME",
+			"postgres": "TIMESTAMPTZ",
+			"sqlite3":  "TIMESTAMP",
+		},
+		Pk:       v1.PK_PK_UNSPECIFIED.Enum(),
+		Nullable: proto.Bool(true),
+	}
 	BookColumnDef_Publisher = &v1.SchemaColumn{
 		Name: proto.String("publisher_id"),
 		Type: map[string]string{
@@ -134,6 +146,7 @@ var BookTable = &v1.SchemaTable{
 		BookColumnDef_Title,
 		BookColumnDef_AuthorId,
 		BookColumnDef_Pages,
+		BookColumnDef_PublishedAt,
 		BookColumnDef_Publisher,
 	},
 }
@@ -178,7 +191,10 @@ func (n *PublisherResult) Scan(cols []string, r interface{ Scan(dest ...any) err
 			return fmt.Errorf("unknown column '%s'", col)
 		}
 	}
-	return r.Scan(values...)
+	if err := r.Scan(values...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (n *Publisher) GetColValue(col string) any {
@@ -222,7 +238,10 @@ func (n *AuthorResult) Scan(cols []string, r interface{ Scan(dest ...any) error 
 			return fmt.Errorf("unknown column '%s'", col)
 		}
 	}
-	return r.Scan(values...)
+	if err := r.Scan(values...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (n *Author) GetColValue(col string) any {
@@ -251,6 +270,7 @@ func GetAuthorColumns() []string {
 
 type BookResult struct {
 	Book
+	ts_published_at    sql.NullTime
 	fk_publisher_id_id any
 }
 
@@ -267,13 +287,23 @@ func (n *BookResult) Scan(cols []string, r interface{ Scan(dest ...any) error })
 			values[i] = &n.AuthorId
 		case "pages":
 			values[i] = &n.Pages
+		case "published_at":
+			values[i] = &n.ts_published_at
 		case "publisher_id":
 			values[i] = &n.fk_publisher_id_id
 		default:
 			return fmt.Errorf("unknown column '%s'", col)
 		}
 	}
-	return r.Scan(values...)
+	if err := r.Scan(values...); err != nil {
+		return err
+	}
+	// Left nil when the column is NULL, so an absent timestamp stays absent
+	// rather than becoming the zero instant.
+	if n.ts_published_at.Valid {
+		n.PublishedAt = timestamppb.New(n.ts_published_at.Time)
+	}
+	return nil
 }
 
 func (n *Book) GetColValue(col string) any {
@@ -286,6 +316,12 @@ func (n *Book) GetColValue(col string) any {
 		return n.AuthorId
 	case "pages":
 		return n.Pages
+	case "published_at":
+		// Handed back as a time.Time, which is what a driver can bind.
+		if n.PublishedAt == nil {
+			return nil
+		}
+		return n.PublishedAt.AsTime()
 	case "publisher_id":
 		return n.Publisher
 	default:
@@ -305,6 +341,7 @@ func GetBookColumns() []string {
 		"book_title",
 		"author_id",
 		"pages",
+		"published_at",
 		"publisher_id",
 	}
 }
@@ -461,7 +498,7 @@ func LoadAuthor(ctx context.Context, c query.Conn, mask *fieldmaskpb.FieldMask, 
 // are always included: they are what relations are stitched on, so leaving
 // them out of the mask must not break eager loading.
 func BookQueryColumns(m *query.Mask, extra ...string) []string {
-	cols := make([]string, 0, 5+len(extra))
+	cols := make([]string, 0, 6+len(extra))
 	cols = append(cols, "book_id")
 	if m.Has("title") {
 		cols = append(cols, "book_title")
@@ -471,6 +508,9 @@ func BookQueryColumns(m *query.Mask, extra ...string) []string {
 	}
 	if m.Has("pages") {
 		cols = append(cols, "pages")
+	}
+	if m.Has("published_at") {
+		cols = append(cols, "published_at")
 	}
 	if m.Has("publisher") {
 		cols = append(cols, "publisher_id")

@@ -3,6 +3,7 @@ syntax = "proto2";
 package testdata;
 
 import "sqlmap/v1/sqlmap.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "testdata/eagerpb";
 
@@ -38,6 +39,9 @@ message Book {
   // int32 has no explicit type, so it exercises the per-dialect default:
   // INTEGER on PostgreSQL/SQLite, INT(11) only on MySQL.
   optional int32 pages = 5 [(sqlmap.v1.col) = { fieldname: "pages" }];
+  // A well-known Timestamp maps to the dialect's timestamp type, not to the
+  // JSON blob any other message field without a foreign key becomes.
+  optional google.protobuf.Timestamp published_at = 6 [(sqlmap.v1.col) = { fieldname: "published_at" }];
 
   // belongs-to: this row holds publisher_id, pointing at tbl_publisher.
   optional Publisher publisher = 4 [(sqlmap.v1.col) = {

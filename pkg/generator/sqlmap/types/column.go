@@ -65,6 +65,21 @@ func (c *Column) GetForeignKeyEntity() string {
 	return ""
 }
 
+// timestampFullName is the well-known type that maps onto a SQL timestamp
+// column rather than an embedded JSON blob.
+const timestampFullName = "google.protobuf.Timestamp"
+
+// IsTimestamp reports whether the column holds a google.protobuf.Timestamp.
+// It is a message field, but unlike other message fields it is neither a
+// foreign key nor a JSON blob: it maps to the dialect's timestamp type, and
+// the scanner reads it through a sql.NullTime because a driver cannot scan
+// into a **timestamppb.Timestamp.
+func (c *Column) IsTimestamp() bool {
+	return c.Field.Desc.Kind() == protoreflect.MessageKind &&
+		c.Field.Message != nil &&
+		c.Field.Message.Desc.FullName() == timestampFullName
+}
+
 // IsMessage reports whether the column's value is a reference stored as a
 // message field, which the scanner keeps as a raw fk_<column>_id value rather
 // than scanning into the message itself.
@@ -120,6 +135,20 @@ func (c *Column) GetSqlType(repo TableRepo, dialect string) (string, error) {
 	case protoreflect.FloatKind:
 		return "FLOAT", nil
 	case protoreflect.MessageKind:
+		if c.IsTimestamp() {
+			switch dialect {
+			case "mysql":
+				// Not TIMESTAMP: MySQL's is a 32-bit epoch that stops in 2038,
+				// while DATETIME covers the range a proto Timestamp can hold.
+				return "DATETIME", nil
+			case "sqlite3":
+				return "TIMESTAMP", nil
+			default:
+				// TIMESTAMPTZ, since a proto Timestamp is an absolute instant
+				// in UTC, not a wall-clock reading.
+				return "TIMESTAMPTZ", nil
+			}
+		}
 		if c.Def.ForeignKey != nil {
 			entity := c.GetForeignKeyEntity()
 			tbl, ok := repo.GetByName(entity)
